@@ -777,6 +777,57 @@ const migracoes: string[] = [
     valor REAL NOT NULL,
     criado_em TEXT NOT NULL DEFAULT (datetime('now'))
   );`,
+  // Transportadora: embarcadores (quem contrata o frete), motoristas e veículos, com vínculo própria/agregado/autônomo
+  `CREATE TABLE embarcadores (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    tipo_doc TEXT NOT NULL CHECK (tipo_doc IN ('CPF','CNPJ')),
+    documento TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    email TEXT,
+    fone TEXT,
+    cidade TEXT,
+    uf TEXT,
+    prazo_pagamento_dias INTEGER NOT NULL DEFAULT 15,
+    observacao TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (empresa_id, documento)
+  );
+  CREATE TABLE motoristas (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    nome TEXT NOT NULL,
+    cpf TEXT NOT NULL,
+    fone TEXT,
+    vinculo TEXT NOT NULL CHECK (vinculo IN ('PROPRIO','AGREGADO','AUTONOMO')),
+    cnh_numero TEXT,
+    cnh_categoria TEXT,
+    cnh_validade TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (empresa_id, cpf)
+  );
+  CREATE TABLE veiculos (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    placa TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    capacidade_kg REAL,
+    vinculo TEXT NOT NULL CHECK (vinculo IN ('PROPRIO','AGREGADO','AUTONOMO')),
+    proprietario_nome TEXT,
+    proprietario_documento TEXT,
+    motorista_id INTEGER REFERENCES motoristas(id) ON DELETE SET NULL,
+    crlv_vencimento TEXT,
+    seguro_vencimento TEXT,
+    ipva_vencimento TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (empresa_id, placa)
+  );
+  CREATE INDEX ix_embarcadores_empresa ON embarcadores(empresa_id);
+  CREATE INDEX ix_motoristas_empresa ON motoristas(empresa_id);
+  CREATE INDEX ix_veiculos_empresa ON veiculos(empresa_id);`,
 ];
 
 export function migrar(): void {

@@ -11,6 +11,7 @@ export type Tipo = 'adm' | 'normal';
 export const MODULOS = {
   painel: 'Painel do mês', emitir: 'Emitir nota', notas: 'Notas emitidas', cobrancas: 'Cobranças',
   banco: 'Dados bancários', despesas: 'Despesas e balanço', tomadores: 'Clientes', servicos: 'Serviços', empresas: 'Empresas', relatorios: 'Relatórios', compras: 'Compras', tributacao: 'Tributação',
+  embarcadores: 'Embarcadores', frota: 'Frota e motoristas',
   excluir: 'Excluir registros',
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -72,6 +73,8 @@ const REGRAS: Regra[] = [
   { r: /^\/api\/empresas\/\d+\/orcamentos(\/\d+(\/(duplicar|situacao|conversao|pdf|email))?)?$/, mod: ['emitir'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/tomadores$/, mod: ['tomadores', 'emitir', 'cobrancas'] },
   { r: /^\/api\/empresas\/\d+\/tomadores(\/planilha\/(analisar|importar))?$|^\/api\/tomadores\/\d+$/, mod: ['tomadores'] },
+  { r: /^\/api\/empresas\/\d+\/embarcadores$|^\/api\/embarcadores\/\d+$/, mod: ['embarcadores'] },
+  { r: /^\/api\/empresas\/\d+\/(veiculos|motoristas)$|^\/api\/(veiculos|motoristas)\/\d+$/, mod: ['frota'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/servicos$/, mod: ['servicos', 'emitir'] },
   { r: /^\/api\/empresas\/\d+\/servicos$|^\/api\/servicos\/\d+$/, mod: ['servicos'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/conta-bancaria$/, mod: ['banco', 'empresas', 'cobrancas', 'emitir'] },
