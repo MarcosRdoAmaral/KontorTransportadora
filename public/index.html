@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kontor Gestão Empresas</title>
+  <script>try { document.documentElement.dataset.tema = localStorage.getItem('tema') || 'preto-laranja'; } catch {}</script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%23fb923d%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="setup" class="login" hidden>
+    <form id="form-setup" class="login-caixa">
+      <img class="logo" src="/logo.svg" alt="Kontor Gestão Empresas">
+      <p class="chamada">Emissor de NFS-e. Vamos criar o primeiro acesso; seus dados ficam guardados somente neste computador.</p>
+      <label>Nome do escritório <input name="escritorio" required autocomplete="organization"></label>
+      <label>Seu nome <input name="nome" required autocomplete="name"></label>
+      <label>Usuário de acesso <input name="usuario" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._\-]+" autocomplete="username" style="text-transform:uppercase"><span class="dica">É com ele que você entra no sistema (sem espaços nem acentos). Fica sempre em MAIÚSCULAS.</span></label>
+      <label>E-mail <input name="email" type="email" required autocomplete="email"><span class="dica">Usado para recuperar a senha.</span></label>
+      <label>Senha <input name="senha" type="password" minlength="8" required autocomplete="new-password"><span class="dica">Mínimo de 8 caracteres. Anote: não há como recuperá-la.</span></label>
+      <label>Repita a senha <input name="senha2" type="password" minlength="8" required autocomplete="new-password"></label>
+      <p class="erro" id="erro-setup" role="alert"></p>
+      <button class="primario" type="submit">Criar acesso e começar</button>
+    </form>
+  </div>
+
+  <div id="login" class="login" hidden>
+    <form id="form-login" class="login-caixa">
+      <img class="logo" src="/logo.svg" alt="Kontor Gestão Empresas">
+      <p class="chamada">Emissor de NFS-e pelo Sistema Nacional.</p>
+      <label>Usuário <input name="usuario" required autocomplete="username" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase"></label>
+      <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
+      <p class="erro" id="erro-login" role="alert"></p>
+      <button class="primario" type="submit">Entrar</button>
+      <button class="link" type="button" id="esqueci" style="justify-self:center">Esqueci minha senha</button>
+    </form>
+  </div>
+
+  <div id="aviso-versao" class="aviso-versao" hidden></div>
+  <div id="app" class="app" hidden>
+    <aside class="lateral">
+      <div class="fixo-lateral">
+      <div class="marca"><img src="/logo.svg" alt="Kontor Gestão Empresas"></div>
+      <label class="seletor-empresa">
+        <span>Empresa</span>
+        <select id="empresa-atual"></select>
+      </label>
+      <div id="info-empresa" class="info-empresa"></div>
+      </div>
+      <nav id="menu">
+        <a href="#/inicio">Início</a>
+        <a href="#/painel" data-modulo="painel">Painel do mês</a>
+        <details class="grupo" data-grupo="faturamento"><summary>Faturamento</summary>
+          <a href="#/orcamentos" data-modulo="emitir">Orçamentos</a>
+          <a href="#/emitir" data-modulo="emitir">Emitir nota</a>
+          <a href="#/agenda" data-modulo="emitir">Emissão automática</a>
+          <a href="#/notas" data-modulo="notas">Notas emitidas</a>
+          <a href="#/cobrancas" data-modulo="cobrancas">Cobranças</a>
+        </details>
+        <details class="grupo" data-grupo="suprimentos"><summary>Compras</summary>
+          <a href="#/compras" data-modulo="compras">Compras</a>
+          <a href="#/nfe-sefaz" data-modulo="compras">Buscar NF-e (SEFAZ)</a>
+        </details>
+        <details class="grupo" data-grupo="financeiro"><summary>Financeiro</summary>
+          <a href="#/despesas" data-modulo="despesas">Despesas e balanço</a>
+          <a href="#/extrato" data-modulo="despesas">Extrato e conciliação</a>
+          <a href="#/cartao" data-modulo="despesas">Fatura do cartão</a>
+        </details>
+        <details class="grupo" data-grupo="cadastros"><summary>Cadastros</summary>
+          <a href="#/tomadores" data-modulo="tomadores">Clientes</a>
+          <a href="#/servicos" data-modulo="servicos">Serviços</a>
+          <a href="#/tributacao" data-modulo="tributacao">Tributação</a>
+          <a href="#/empresas" data-modulo="empresas">Empresas</a>
+        </details>
+        <a href="#/relatorios" data-modulo="relatorios">Relatórios</a>
+        <a href="#/relatorios/documentacao" id="menu-doc" hidden>Documentação</a>
+      </nav>
+      <div class="lateral-rodape">
+        <a href="#/config" class="rodape-item" data-icone="config"><span>Configurações</span></a>
+        <button type="button" id="sair" class="rodape-item" data-icone="sair"><span>Sair</span></button>
+        <span id="nome-usuario" hidden></span><span class="versao" id="versao" hidden></span>
+      </div>
+    </aside>
+    <div class="coluna-principal"><main id="conteudo" tabindex="-1"></main></div>
+  </div>
+
+  <dialog id="dialogo"><div id="dialogo-corpo"></div></dialog>
+  <div id="aviso" class="aviso" role="status" aria-live="polite"></div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

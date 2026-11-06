@@ -1,0 +1,64 @@
+name: Publicar versão
+
+# Para publicar uma versão: aumente "version" no package.json e envie para a branch main.
+# O fluxo testa, gera o instalador do Windows e cria a release v<versão> com o .exe e o .sha256,
+# que os aplicativos instalados usam para avisar/baixar a atualização.
+# Também pode ser executado manualmente em Actions > Publicar versão > Run workflow.
+#
+# Por enquanto só dispara manualmente (Actions > Publicar versão > Run workflow) e publica neste próprio
+# repositório. Para os clientes receberem atualização automática é preciso um repositório PÚBLICO só de
+# releases (package.json > kontor.repositorioAtualizacoes) e o secret RELEASES_TOKEN, como no Kontor Empresas.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Repositório onde ficam as releases que os clientes consultam
+  REPO_RELEASES: ${{ github.repository }}
+  GH_TOKEN: ${{ secrets.RELEASES_TOKEN || github.token }}
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Versão
+        id: v
+        run: echo "versao=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Esta versão já foi publicada?
+        id: ja
+        run: |
+          if gh release view "v${{ steps.v.outputs.versao }}" --repo "$REPO_RELEASES" >/dev/null 2>&1; then echo "existe=1" >> "$GITHUB_OUTPUT"; else echo "existe=0" >> "$GITHUB_OUTPUT"; fi
+      - run: npm ci
+        if: steps.ja.outputs.existe == '0'
+      - name: Ferramentas dos testes (xmllint e openssl)
+        if: steps.ja.outputs.existe == '0'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils openssl nsis
+      - name: Testes
+        if: steps.ja.outputs.existe == '0'
+        run: |
+          npm test > test.log 2>&1 || {
+            grep -E "^not ok|error:|Error|expected|actual|ENOENT|not found|!==" -A2 test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          }
+      - run: npm run dist
+        if: steps.ja.outputs.existe == '0'
+      - name: Checksum
+        if: steps.ja.outputs.existe == '0'
+        run: cd release && sha256sum Kontor-Transportadora-Instalador-*.exe > "$(ls Kontor-Transportadora-Instalador-*.exe).sha256"
+      - uses: actions/upload-artifact@v4
+        if: steps.ja.outputs.existe == '0'
+        with:
+          name: Kontor-Transportadora-Instalador
+          path: release/Kontor-Transportadora-Instalador-*
+      - name: Criar release
+        if: steps.ja.outputs.existe == '0'
+        # No repositório público a tag aponta para o branch padrão dele (lá não existe o commit do código)
+        run: gh release create "v${{ steps.v.outputs.versao }}" release/Kontor-Transportadora-Instalador-* --repo "$REPO_RELEASES" $( [ "$REPO_RELEASES" = "${{ github.repository }}" ] && echo "--target ${GITHUB_SHA}" ) --title "Kontor Gestão Transportadora ${{ steps.v.outputs.versao }}" $( [ -f "novidades/${{ steps.v.outputs.versao }}.md" ] && echo "--notes-file novidades/${{ steps.v.outputs.versao }}.md" || echo "--notes Melhorias e correções de desempenho e estabilidade." )

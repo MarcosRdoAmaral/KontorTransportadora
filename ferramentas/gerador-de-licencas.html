@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kontor – Gerador de licenças</title>
+<style>
+body{font:15px system-ui,sans-serif;background:#14110f;color:#eee;max-width:760px;margin:24px auto;padding:0 16px}
+h1{color:#ff7a1a;font-size:22px} h2{font-size:16px;margin-top:28px;border-bottom:1px solid #333;padding-bottom:6px}
+label{display:block;margin:10px 0 4px;color:#bbb} input,select,textarea{width:100%;box-sizing:border-box;background:#1f1a17;color:#eee;border:1px solid #444;border-radius:6px;padding:8px;font:inherit}
+textarea{min-height:80px;font-family:ui-monospace,monospace;font-size:13px} button{background:#ff7a1a;color:#111;border:0;border-radius:6px;padding:9px 16px;font-weight:600;margin-top:10px;cursor:pointer}
+.aviso{background:#3a2a10;border:1px solid #ff7a1a;padding:10px;border-radius:6px;margin:12px 0}.ok{color:#7ddc7d}.erro{color:#ff6b6b}
+</style></head><body>
+<h1>Kontor Gestão Empresas – Gerador de licenças</h1>
+<div class="aviso">Ferramenta <b>só sua</b>. Funciona offline, sem enviar nada para a internet. Guarde a <b>chave privada</b> em local seguro e <b>nunca</b> a envie a ninguém – quem a tiver gera licenças.</div>
+
+<h2>1. Gerar o par de chaves (uma única vez)</h2>
+<button id="gerar">Gerar chaves</button>
+<label>Chave pública (envie esta ao desenvolvimento)</label><textarea id="pub" readonly></textarea>
+<label>Chave privada (GUARDE; não compartilhe)</label><textarea id="priv" readonly></textarea>
+
+<h2>2. Emitir código de ativação</h2>
+<label>Chave privada</label><textarea id="priv2" placeholder="Cole aqui a chave privada (JSON com x e d, só o d, hexadecimal ou PEM)" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+<label style="margin-top:6px">ou <input id="arqchave" type="file" accept=".txt,.json,.pem,.key,text/*" style="width:auto;display:inline"> abrir arquivo da chave</label>
+<label>Código do computador (informado pelo cliente)</label><input id="maq" placeholder="XXXX-XXXX-XXXX-XXXX">
+<label>Nome do cliente / escritório</label><input id="cli">
+<label>Plano</label><select id="plano"><option value="bronze">Bronze (1 empresa)</option><option value="prata">Prata (até 5 empresas)</option><option value="ouro">Ouro (até 15 empresas)</option><option value="diamante">Diamante (ilimitado, sob encomenda)</option></select>
+<label>Módulos adicionais (vendidos à parte)</label><div id="modulos"></div>
+<label>Válida até</label><input id="ate" type="date">
+<button id="emitir">Gerar código</button>
+<label>Código de ativação (envie ao cliente)</label><textarea id="saida" readonly></textarea>
+<p id="msg"></p>
+
+<h2>3. Código de acesso de suporte (usuário master KONTOR)</h2>
+<div class="aviso">O usuário <b>KONTOR</b> não tem senha. Para entrar no sistema de um cliente, gere aqui um código para o computador dele: na tela de login, use o usuário <b>KONTOR</b> e cole o código no campo senha. O código só funciona naquele computador e expira sozinho (no máximo 24 horas).</div>
+<label>Código do computador (aparece no menu Licença do cliente)</label><input id="maq-sup" placeholder="XXXX-XXXX-XXXX-XXXX">
+<label>Validade</label><select id="horas-sup"><option value="1">1 hora</option><option value="4" selected>4 horas</option><option value="8">8 horas</option><option value="24">24 horas</option></select>
+<button id="emitir-sup">Gerar código de suporte</button>
+<label>Código de suporte (use como senha do KONTOR)</label><textarea id="saida-sup" readonly></textarea>
+<p id="msg-sup"></p>
+
+<script id="nucleo">
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const deB64u = (s) => Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+async function gerarChaves() {
+  const par = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  const pub = await crypto.subtle.exportKey('jwk', par.publicKey);
+  const priv = await crypto.subtle.exportKey('jwk', par.privateKey);
+  return { publica: pub.x, privada: JSON.stringify({ x: priv.x, d: priv.d }) };
+}
+function somaMeses(data, meses) {
+  const d = new Date(data.getTime()); const dia = d.getUTCDate();
+  d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + meses);
+  const ult = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(dia, ult)); return d.toISOString().slice(0, 10);
+}
+// Chave pública embutida no aplicativo (src/licenca-chave.ts). Só serve para conferir se a chave privada colada é a certa.
+const PUBLICA_APP = 'koSMJ7OYyldxeMDkJVi3dIhkLwsvnPMq6EfPVOseknc';
+const HEX = /^[0-9a-fA-F]+$/;
+/** Aceita a chave privada em vários formatos: JSON {"x","d"} (o que este gerador mostra), JWK, só o "d", hexadecimal ou PEM. */
+function lerChavePrivada(texto) {
+  let t = String(texto ?? '').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ').replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"').replace(/[\u2018\u2019\u2032]/g, "'").trim();
+  if (!t) throw new Error('Cole a chave privada no campo (ou use "Abrir arquivo da chave").');
+  if (/^(["'])[^"']*\1$/.test(t)) t = t.slice(1, -1).trim();
+  let x = null, d = null, pkcs8 = null;
+  if (t.includes('BEGIN') && t.includes('PRIVATE KEY')) {
+    const b = t.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+    pkcs8 = Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+  } else if (t.startsWith('{') || t.includes('"d"')) {
+    let o; try { o = JSON.parse(t.startsWith('{') ? t : '{' + t.replace(/^[{,\s]+|[},\s]+$/g, '') + '}'); }
+    catch { throw new Error('O texto parece JSON, mas está incompleto ou com aspas trocadas. Copie a chave privada inteira, de { até }.'); }
+    d = o.d ?? o.privada ?? o.private; x = o.x ?? o.publica ?? null;
+    if (typeof d === 'string' && d.trim().startsWith('{')) { const i = JSON.parse(d); d = i.d; x = x ?? i.x; }
+  } else {
+    const l = t.replace(/\s+/g, '');
+    if (l.length === 64 && HEX.test(l)) d = b64u(Uint8Array.from(l.match(/../g).map((h) => parseInt(h, 16))));
+    else d = l.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  if (!pkcs8) {
+    if (!d || !/^[A-Za-z0-9_-]{43}$/.test(String(d).trim())) throw new Error('Chave privada em formato não reconhecido (esperado: 32 bytes, 43 caracteres em base64). Use a que foi mostrada em "Gerar chaves".');
+    d = String(d).trim(); x = x ? String(x).trim() : PUBLICA_APP;
+  }
+  return { x, d, pkcs8 };
+}
+// Módulos vendidos à parte (mesma lista de src/licenca.ts, MODULOS_PAGOS). Código com módulo exige o sistema na versão 3.34.0 ou posterior.
+const MODULOS_PAGOS = {};
+async function emitirCodigo(privada, maquina, ate, cliente, plano, modulos) {
+  modulos = (modulos ?? []).filter((m) => m in MODULOS_PAGOS);
+  if (modulos.length && !plano) throw new Error('Escolha o plano.');
+  if (plano && !['bronze', 'prata', 'ouro', 'diamante'].includes(plano)) throw new Error('Escolha o plano.');
+  if (!/^[0-9A-Fa-f]{4}(-?[0-9A-Fa-f]{4}){3}$/.test(maquina.trim())) throw new Error('Código do computador inválido.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ate)) throw new Error('Informe a data de validade.');
+  const k = lerChavePrivada(privada);
+  let chave;
+  try {
+    chave = k.pkcs8
+      ? await crypto.subtle.importKey('pkcs8', k.pkcs8, { name: 'Ed25519' }, false, ['sign'])
+      : await crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: k.x, d: k.d }, { name: 'Ed25519' }, false, ['sign']);
+  } catch (e) { throw new Error('Esta chave privada não corresponde à chave pública do aplicativo (' + PUBLICA_APP + ') ou está corrompida. Use a chave privada gerada junto com essa chave pública. (' + (e.message || e) + ')'); }
+  const nome = cliente.replace(/\|/g, ' ').trim();
+  const carga = new TextEncoder().encode((modulos.length ? [maquina.trim().toUpperCase(), ate, plano, modulos.join(','), nome] : plano ? [maquina.trim().toUpperCase(), ate, plano, nome] : [maquina.trim().toUpperCase(), ate, nome]).join('|'));
+  const sig = await crypto.subtle.sign({ name: 'Ed25519' }, chave, carga);
+  const codigo = (modulos.length ? 'KG3.' : plano ? 'KG2.' : 'KG1.') + b64u(carga) + '.' + b64u(sig);
+  // confere se a chave privada e a pública formam um par (impede gerar códigos que nenhum cliente aceitaria)
+  if (k.x) {
+    const pub = await crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: k.x }, { name: 'Ed25519' }, false, ['verify']);
+    if (!(await crypto.subtle.verify({ name: 'Ed25519' }, pub, sig, carga))) throw new Error('Esta chave privada não corresponde à chave pública do aplicativo (' + PUBLICA_APP + '). Use a chave privada gerada junto com essa chave pública.');
+  }
+  return codigo;
+}
+/** Código de suporte: KS1.<SUPORTE|computador|expira ISO|aleatório>.<assinatura>. Usa a mesma chave privada das licenças. */
+async function emitirCodigoSuporte(privada, maquina, horas, agora = new Date()) {
+  if (!/^[0-9A-Fa-f]{4}(-?[0-9A-Fa-f]{4}){3}$/.test(String(maquina).trim())) throw new Error('Código do computador inválido.');
+  const h = Number(horas);
+  if (!(h > 0 && h <= 24)) throw new Error('A validade vai de 1 a 24 horas.');
+  const k = lerChavePrivada(privada);
+  let chave;
+  try {
+    chave = k.pkcs8
+      ? await crypto.subtle.importKey('pkcs8', k.pkcs8, { name: 'Ed25519' }, false, ['sign'])
+      : await crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: k.x, d: k.d }, { name: 'Ed25519' }, false, ['sign']);
+  } catch (e) { throw new Error('Chave privada inválida. (' + (e.message || e) + ')'); }
+  const aleatorio = b64u(crypto.getRandomValues(new Uint8Array(9)));
+  const expira = new Date(agora.getTime() + h * 3600e3).toISOString();
+  const carga = new TextEncoder().encode(['SUPORTE', String(maquina).trim().toUpperCase(), expira, aleatorio].join('|'));
+  const sig = await crypto.subtle.sign({ name: 'Ed25519' }, chave, carga);
+  if (k.x) {
+    const pub = await crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: k.x }, { name: 'Ed25519' }, false, ['verify']);
+    if (!(await crypto.subtle.verify({ name: 'Ed25519' }, pub, sig, carga))) throw new Error('Esta chave privada não corresponde à chave pública do aplicativo (' + PUBLICA_APP + ').');
+  }
+  return { codigo: 'KS1.' + b64u(carga) + '.' + b64u(sig), expira };
+}
+function avisoChave(privada) { try { const k = lerChavePrivada(privada); return k.x && k.x !== PUBLICA_APP ? 'Atenção: esta chave não é a que está embutida no aplicativo (' + PUBLICA_APP + '); os clientes só aceitam códigos da chave correta.' : ''; } catch { return ''; } }
+</script>
+<script>
+const $ = (i) => document.getElementById(i);
+$('ate').value = somaMeses(new Date(), 3);
+$('modulos').innerHTML = Object.entries(MODULOS_PAGOS).map(([k, n]) => `<label style="display:flex;gap:8px;align-items:center;color:#eee"><input type="checkbox" name="mod" value="${k}" style="width:auto"> ${n}</label>`).join('') || '<p style="color:#999;margin:4px 0">Nenhum módulo adicional à venda por enquanto.</p>';
+const modulosMarcados = () => [...document.querySelectorAll('#modulos input:checked')].map((i) => i.value);
+$('gerar').onclick = async () => { try { const k = await gerarChaves(); $('pub').value = k.publica; $('priv').value = k.privada; $('priv2').value = k.privada; } catch (e) { $('msg').className='erro'; $('msg').textContent = 'Seu navegador não suporta Ed25519: use um Chrome/Edge atualizado. ' + e.message; } };
+$('arqchave').onchange = async (ev) => { const f = ev.target.files[0]; if (f) { $('priv2').value = (await f.text()).trim(); $('msg').className='ok'; $('msg').textContent = 'Chave carregada do arquivo.'; } };
+$('emitir').onclick = async () => { try { $('saida').value = await emitirCodigo($('priv2').value, $('maq').value, $('ate').value, $('cli').value, $('plano').value, modulosMarcados()); const av = avisoChave($('priv2').value); $('msg').className = av ? 'erro' : 'ok'; $('msg').textContent = av || 'Código gerado.'; } catch (e) { $('msg').className='erro'; $('msg').textContent = e.message; } };
+$('emitir-sup').onclick = async () => { try { const r = await emitirCodigoSuporte($('priv2').value, $('maq-sup').value, $('horas-sup').value); $('saida-sup').value = r.codigo; $('msg-sup').className = 'ok'; $('msg-sup').textContent = 'Código gerado. Vale até ' + new Date(r.expira).toLocaleString('pt-BR') + '. Use a chave privada do item 2.'; } catch (e) { $('msg-sup').className = 'erro'; $('msg-sup').textContent = e.message; } };
+</script></body></html>

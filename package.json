@@ -1,0 +1,93 @@
+{
+  "name": "kontor-transportadora",
+  "version": "0.1.0",
+  "description": "Kontor Gestão Transportadora — operação, frota e financeiro de transportadoras para Windows",
+  "main": "electron/main.mjs",
+  "kontor": {
+    "repositorioAtualizacoes": "MarcosRdoAmaral/KontorTransportadora"
+  },
+  "scripts": {
+    "dev": "node --disable-warning=ExperimentalWarning --import tsx --watch src/server.ts",
+    "build": "tsc",
+    "start": "node --disable-warning=ExperimentalWarning dist/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "desktop": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win --x64 --dir -c.win.signAndEditExecutable=false && node scripts/instalador-local.mjs"
+  },
+  "author": "Escritório",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@fastify/multipart": "^9.4.0",
+    "@fastify/static": "^8.3.0",
+    "@xmldom/xmldom": "^0.9.12",
+    "dotenv": "^18.0.9",
+    "fast-xml-parser": "^5.11.2",
+    "fastify": "^5.12.7",
+    "fflate": "^0.8.3",
+    "node-forge": "^1.4.0",
+    "nodemailer": "^10.2.1",
+    "pdfjs-dist": "^4.10.38",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4",
+    "xml-crypto": "^6.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/node-forge": "^1.3.14",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.7",
+    "@types/qrcode": "^1.5.6",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "resedit": "^3.1.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "build": {
+    "appId": "br.com.kontor.transportadora",
+    "productName": "Kontor Gestão Transportadora",
+    "copyright": "Kontor Gestão Transportadora",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "public/**",
+      "electron/**",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kontor Gestão Transportadora",
+      "language": "1046",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Kontor-Transportadora-Instalador-${version}.exe",
+      "uninstallDisplayName": "Kontor Gestão Transportadora"
+    }
+  }
+}
