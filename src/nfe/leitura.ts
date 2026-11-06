@@ -2,7 +2,7 @@ import { XMLParser } from 'fast-xml-parser';
 
 const parser = new XMLParser({
   ignoreAttributes: false, attributeNamePrefix: '@', removeNSPrefix: true, parseTagValue: false, trimValues: true,
-  isArray: (nome) => ['det', 'dup', 'detPag'].includes(nome),
+  isArray: (nome) => ['det', 'dup', 'detPag', 'vol'].includes(nome),
 });
 const n = (v: unknown) => (v === undefined || v === null || v === '' ? 0 : Number(v) || 0);
 const txt = (v: unknown) => (v === undefined || v === null || v === '' ? null : String(v));
@@ -10,8 +10,13 @@ const txt = (v: unknown) => (v === undefined || v === null || v === '' ? null : 
 export interface ItemNfe { n: number; codigo: string | null; descricao: string; ncm: string | null; cfop: string | null; unidade: string | null; quantidade: number; valorUnit: number; valor: number; desconto: number }
 export interface NfeLida {
   chave: string; numero: string; serie: string; modelo: string; emissao: string; natureza: string | null;
-  fornecedor: { documento: string; nome: string; fantasia: string | null; uf: string | null; municipio: string | null };
-  destinatario: { documento: string | null; nome: string | null };
+  fornecedor: { documento: string; nome: string; fantasia: string | null; uf: string | null; municipio: string | null; codMunicipio: string | null };
+  destinatario: { documento: string | null; nome: string | null; uf: string | null; municipio: string | null; codMunicipio: string | null };
+  /** Local de retirada e de entrega (grupos retirada/entrega ou, sem eles, endereço do emitente e do destinatário). */
+  retirada: { uf: string | null; municipio: string | null; codMunicipio: string | null };
+  entrega: { uf: string | null; municipio: string | null; codMunicipio: string | null };
+  /** Transporte: modFrete 0 = por conta do emitente (CIF), 1 = do destinatário (FOB); peso e volumes somados. */
+  transporte: { modFrete: string | null; pesoBruto: number; pesoLiquido: number; volumes: number };
   totais: { produtos: number; frete: number; seguro: number; desconto: number; outras: number; icms: number; icmsSt: number; ipi: number; nf: number; ibsUf: number; ibsMun: number; cbs: number };
   itens: ItemNfe[];
   parcelas: { numero: string | null; vencimento: string; valor: number }[];
@@ -42,8 +47,16 @@ export function lerNfe(xml: string): NfeLida {
   const detPag = inf.pag?.detPag ?? [];
   return {
     chave, numero: String(ide.nNF ?? ''), serie: String(ide.serie ?? ''), modelo: String(ide.mod ?? '55'), emissao, natureza: txt(ide.natOp),
-    fornecedor: { documento: String(emit.CNPJ ?? emit.CPF ?? ''), nome: String(emit.xNome ?? ''), fantasia: txt(emit.xFant), uf: txt(emit.enderEmit?.UF), municipio: txt(emit.enderEmit?.xMun) },
-    destinatario: { documento: txt(dest.CNPJ ?? dest.CPF), nome: txt(dest.xNome) },
+    fornecedor: { documento: String(emit.CNPJ ?? emit.CPF ?? ''), nome: String(emit.xNome ?? ''), fantasia: txt(emit.xFant), uf: txt(emit.enderEmit?.UF), municipio: txt(emit.enderEmit?.xMun), codMunicipio: txt(emit.enderEmit?.cMun) },
+    destinatario: { documento: txt(dest.CNPJ ?? dest.CPF), nome: txt(dest.xNome), uf: txt(dest.enderDest?.UF), municipio: txt(dest.enderDest?.xMun), codMunicipio: txt(dest.enderDest?.cMun) },
+    retirada: inf.retirada ? { uf: txt(inf.retirada.UF), municipio: txt(inf.retirada.xMun), codMunicipio: txt(inf.retirada.cMun) } : { uf: txt(emit.enderEmit?.UF), municipio: txt(emit.enderEmit?.xMun), codMunicipio: txt(emit.enderEmit?.cMun) },
+    entrega: inf.entrega ? { uf: txt(inf.entrega.UF), municipio: txt(inf.entrega.xMun), codMunicipio: txt(inf.entrega.cMun) } : { uf: txt(dest.enderDest?.UF), municipio: txt(dest.enderDest?.xMun), codMunicipio: txt(dest.enderDest?.cMun) },
+    transporte: {
+      modFrete: txt(inf.transp?.modFrete),
+      pesoBruto: (inf.transp?.vol ?? []).reduce((s: number, v: any) => s + n(v.pesoB), 0),
+      pesoLiquido: (inf.transp?.vol ?? []).reduce((s: number, v: any) => s + n(v.pesoL), 0),
+      volumes: (inf.transp?.vol ?? []).reduce((s: number, v: any) => s + n(v.qVol), 0),
+    },
     totais: { produtos: n(tot.vProd), frete: n(tot.vFrete), seguro: n(tot.vSeg), desconto: n(tot.vDesc), outras: n(tot.vOutro), icms: n(tot.vICMS), icmsSt: n(tot.vST), ipi: n(tot.vIPI), nf: n(tot.vNF),
       ibsUf: n(inf.total?.IBSCBSTot?.gIBS?.gIBSUF?.vIBSUF), ibsMun: n(inf.total?.IBSCBSTot?.gIBS?.gIBSMun?.vIBSMun), cbs: n(inf.total?.IBSCBSTot?.gCBS?.vCBS) },
     itens, parcelas, pagamentos: detPag.map((p: any) => ({ tPag: String(p.tPag ?? ''), valor: n(p.vPag) })),

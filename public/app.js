@@ -423,13 +423,13 @@ async function iniciar() {
 
 /** A tela pertence a algum módulo liberado para o usuário? (o servidor confere de novo em cada chamada) */
 function telaPermitida(nome) {
-  const modulo = { painel: 'painel', emitir: 'emitir', orcamentos: 'emitir', orcamento: 'emitir', notas: 'notas', nota: 'notas', cobrancas: 'cobrancas', banco: 'empresas', despesas: 'despesas', compras: 'compras', entradas: 'compras', 'compra-nova': 'compras', 'nfe-sefaz': 'compras', tributacao: 'tributacao', extrato: 'despesas', cartao: 'despesas', agenda: 'emitir', relatorios: 'relatorios', tomadores: 'tomadores', servicos: 'servicos', empresas: 'empresas', embarcadores: 'embarcadores', veiculos: 'frota', motoristas: 'frota', transportadores: 'frota' }[nome];
+  const modulo = { painel: 'painel', emitir: 'emitir', orcamentos: 'emitir', orcamento: 'emitir', notas: 'notas', nota: 'notas', cobrancas: 'cobrancas', banco: 'empresas', despesas: 'despesas', compras: 'compras', entradas: 'compras', 'compra-nova': 'compras', 'nfe-sefaz': 'compras', tributacao: 'tributacao', extrato: 'despesas', cartao: 'despesas', agenda: 'emitir', relatorios: 'relatorios', tomadores: 'tomadores', servicos: 'servicos', empresas: 'empresas', embarcadores: 'embarcadores', veiculos: 'frota', motoristas: 'frota', transportadores: 'frota', viagens: 'viagens' }[nome];
   return nome === 'config' || nome === 'inicio' || (modulo && estado.usuario.modulos.includes(modulo));
 }
 
 const rotas = {
   inicio: telaInicio, painel: telaPainel, emitir: telaEmitir, orcamentos: telaOrcamentos, orcamento: telaOrcamento, notas: telaNotas, nota: telaNota,
-  cobrancas: telaCobrancas, banco: telaBanco, despesas: telaDespesas, compras: telaCompras, entradas: telaCompras, 'compra-nova': telaCompraManual, 'nfe-sefaz': telaNfeSefaz, tributacao: telaTributacao, extrato: telaExtrato, cartao: telaCartao, agenda: telaAgenda, relatorios: telaRelatorios, tomadores: telaTomadores, servicos: telaServicos, empresas: telaEmpresas, embarcadores: telaEmbarcadores, transportadores: telaTransportadores, veiculos: telaVeiculos, motoristas: telaMotoristas, config: telaConfig,
+  cobrancas: telaCobrancas, banco: telaBanco, despesas: telaDespesas, compras: telaCompras, entradas: telaCompras, 'compra-nova': telaCompraManual, 'nfe-sefaz': telaNfeSefaz, tributacao: telaTributacao, extrato: telaExtrato, cartao: telaCartao, agenda: telaAgenda, relatorios: telaRelatorios, tomadores: telaTomadores, servicos: telaServicos, empresas: telaEmpresas, embarcadores: telaEmbarcadores, transportadores: telaTransportadores, viagens: telaViagens, veiculos: telaVeiculos, motoristas: telaMotoristas, config: telaConfig,
 };
 
 function rotear() {
@@ -3098,6 +3098,8 @@ function formTransporte({ rotulo, rota, item, html, aoAbrir, corpo, aoSalvar }) 
       <div class="acoes"><button class="primario" type="submit">Salvar</button>${item ? '<button type="button" id="excluir-transp">Excluir</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
     </form>`, (dlg) => {
     aoAbrir?.(dlg);
+    const fcep = $('#form-transp');
+    if (fcep.cep) fcep.cep.addEventListener('change', () => buscarCep(fcep));
     $('#form-transp').onsubmit = async (ev) => {
       ev.preventDefault();
       try {
@@ -3261,6 +3263,300 @@ async function telaVeiculos() {
         }),
       });
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Viagens
+// ---------------------------------------------------------------------------
+
+const STATUS_VIAGEM = {
+  AGUARDANDO_COLETA: { nome: 'Aguardando coleta', cor: 'var(--laranja)' },
+  EM_TRANSITO: { nome: 'Em trânsito', cor: '#60a5fa' },
+  ENTREGUE: { nome: 'Entregue', cor: 'var(--verde)' },
+  CANCELADA: { nome: 'Cancelada', cor: 'var(--tinta-2)' },
+};
+const seloViagem = (st) => `<span class="selo-estado" style="--c:${STATUS_VIAGEM[st]?.cor ?? 'inherit'}">${esc(STATUS_VIAGEM[st]?.nome ?? st)}</span>`;
+const pesoFmt = (kg) => (kg ? `${Number(kg).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg` : '—');
+const UFS = 'AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO'.split(' ');
+
+/** Municípios do IBGE por UF (consulta pública do IBGE, guardada enquanto o sistema está aberto). Sem internet, o código é digitado. */
+const municipiosUf = {};
+async function municipiosDaUf(uf) {
+  if (!UFS.includes(uf)) return [];
+  municipiosUf[uf] ??= fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`)
+    .then((r) => r.json()).then((l) => l.map((m) => ({ nome: m.nome, ibge: String(m.id) }))).catch(() => { delete municipiosUf[uf]; return []; });
+  return municipiosUf[uf];
+}
+/** Liga cidade + UF ao código IBGE: sugere as cidades da UF e preenche o código ao escolher. */
+function ligarMunicipio(form, prefixo) {
+  const cidade = form[`${prefixo}_cidade`], uf = form[`${prefixo}_uf`], ibge = form[`${prefixo}_ibge`];
+  const lista = form.querySelector(`#mun-${prefixo}`);
+  const casar = async () => {
+    const l = await municipiosDaUf(uf.value.toUpperCase());
+    lista.innerHTML = l.map((m) => `<option value="${esc(m.nome)}">`).join('');
+    const achado = l.find((m) => semAcento(m.nome) === semAcento(cidade.value.trim()));
+    if (achado) { cidade.value = achado.nome; ibge.value = achado.ibge; }
+  };
+  uf.addEventListener('change', () => { uf.value = uf.value.toUpperCase(); casar(); });
+  cidade.addEventListener('change', casar);
+  cidade.addEventListener('focus', () => { if (uf.value) municipiosDaUf(uf.value.toUpperCase()).then((l) => { lista.innerHTML = l.map((m) => `<option value="${esc(m.nome)}">`).join(''); }); });
+}
+
+async function telaViagens() {
+  const base = `/api/empresas/${estado.empresaId}/viagens`;
+  const abas = [['ABERTAS', 'Em aberto'], ['AGUARDANDO_COLETA', 'Aguardando coleta'], ['EM_TRANSITO', 'Em trânsito'], ['ENTREGUE', 'Entregues'], ['CANCELADA', 'Canceladas'], ['', 'Todas']];
+  let filtro = sessionStorage.getItem('viagens-filtro') ?? 'ABERTAS';
+  conteudo.innerHTML = `
+    <div class="topo"><div><h1>Viagens</h1><p class="sutil">Cargas de ${esc(empresa().razao_social)}: embarcador, rota, veículo, motorista, frete e NF-e.</p></div>
+      <div><button class="primario" id="nova-viagem">Nova viagem</button></div></div>
+    <nav class="abas" id="abas-viagem">${abas.map(([k, n]) => `<a href="#" data-f="${k}" class="${k === filtro ? 'ativo' : ''}">${esc(n)}</a>`).join('')}</nav>
+    <p><input id="busca-viagem" type="search" autocomplete="off" placeholder="Buscar por nº, embarcador, placa, motorista, cidade ou NF-e" style="max-width:440px;width:100%"></p>
+    <div id="resumo-viagem" class="sutil" style="margin-bottom:10px"></div>
+    <div id="lista-viagem"></div>`;
+  let itens = [];
+  const pintar = () => {
+    const abertas = itens.filter((v) => v.status !== 'CANCELADA');
+    const frete = abertas.reduce((s, v) => s + v.valor_frete, 0), margem = abertas.reduce((s, v) => s + v.margem, 0);
+    $('#resumo-viagem').innerHTML = itens.length ? `${itens.length} viagem(ns) · frete ${brl(frete)} · margem prevista <strong class="${margem < 0 ? 'cor-vermelho' : ''}">${brl(margem)}</strong>` : '';
+    $('#lista-viagem').innerHTML = itens.length
+      ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Nº</th><th>Embarcador</th><th>Rota</th><th>Veículo / motorista</th><th>NF-e</th><th>Frete</th><th>Margem</th><th>Entrega prevista</th><th>Situação</th></tr></thead><tbody>
+        ${itens.map((v, i) => `<tr class="clicavel" data-i="${i}">
+          <td><strong>${v.numero}</strong></td>
+          <td>${esc(v.embarcador_nome)}</td>
+          <td>${esc(v.origem_cidade)}/${esc(v.origem_uf)} → ${esc(v.destino_cidade)}/${esc(v.destino_uf)}</td>
+          <td>${v.placa ? `<strong>${esc(v.placa)}</strong>` : '<span class="dica">sem veículo</span>'}${v.vinculo ? ` <span class="dica">${esc(VINCULOS[v.vinculo])}</span>` : ''}<br><span class="dica">${esc(v.motorista_nome ?? 'sem motorista')}</span></td>
+          <td>${v.nfes}${v.nfes_incompletas ? ` <span class="selo-conferir" style="white-space:nowrap" title="NF-e só com a chave">${v.nfes_incompletas} sem XML</span>` : ''}<br><span class="dica">${pesoFmt(v.peso_kg)}</span></td>
+          <td>${brl(v.valor_frete)}</td>
+          <td class="${v.margem < 0 ? 'cor-vermelho' : ''}">${brl(v.margem)}</td>
+          <td>${v.status === 'ENTREGUE' ? fmtDataBr(v.entregue_em) : v.status === 'CANCELADA' ? '—' : vencimentoHtml(v.entrega_prevista)}</td>
+          <td>${seloViagem(v.status)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="vazio">Nenhuma viagem nesta situação.</div>';
+    conteudo.querySelectorAll('#lista-viagem tr[data-i]').forEach((tr) => (tr.onclick = () => formViagem(itens[tr.dataset.i].id, carregar)));
+  };
+  const carregar = async () => {
+    const p = new URLSearchParams();
+    if (filtro) p.set('status', filtro);
+    const q = $('#busca-viagem').value.trim();
+    if (q) p.set('q', q);
+    itens = await api('GET', `${base}?${p}`);
+    pintar();
+  };
+  conteudo.querySelectorAll('#abas-viagem a').forEach((a) => (a.onclick = (ev) => {
+    ev.preventDefault(); filtro = a.dataset.f; sessionStorage.setItem('viagens-filtro', filtro);
+    conteudo.querySelectorAll('#abas-viagem a').forEach((b) => b.classList.toggle('ativo', b === a));
+    carregar().catch((e) => aviso(mensagemErro(e)));
+  }));
+  $('#nova-viagem').onclick = () => formViagem(null, carregar);
+  let espera;
+  $('#busca-viagem').oninput = () => { clearTimeout(espera); espera = setTimeout(() => carregar().catch((e) => aviso(mensagemErro(e))), 250); };
+  await carregar();
+}
+
+/** Cadastro e acompanhamento da viagem. Na viagem nova as NF-e ficam na tela até salvar; na existente entram e saem na hora. */
+async function formViagem(viagemId, aoSalvar) {
+  const emp = estado.empresaId;
+  const [v, embarcadores, veiculos, motoristas] = await Promise.all([
+    viagemId ? api('GET', `/api/viagens/${viagemId}`) : null,
+    api('GET', `/api/empresas/${emp}/embarcadores`).catch(() => []),
+    api('GET', `/api/empresas/${emp}/veiculos`).catch(() => []),
+    api('GET', `/api/empresas/${emp}/motoristas`).catch(() => []),
+  ]);
+  // cadastro já inativado continua aparecendo na viagem que o usa
+  if (v && !embarcadores.some((e) => e.id === v.embarcador_id)) embarcadores.push({ id: v.embarcador_id, nome: v.embarcador_nome });
+  if (v?.veiculo_id && !veiculos.some((x) => x.id === v.veiculo_id)) veiculos.push({ id: v.veiculo_id, placa: v.placa, tipo: v.veiculo_tipo, vinculo: v.vinculo });
+  if (v?.motorista_id && !motoristas.some((x) => x.id === v.motorista_id)) motoristas.push({ id: v.motorista_id, nome: v.motorista_nome });
+  const fechada = v?.status === 'CANCELADA';
+  let pendentes = []; // viagem nova: { xml?, chave?, resumo }
+  let atual = v;
+
+  const local = (p) => `
+    <label class="largo">Cidade <input name="${p}_cidade" required maxlength="60" list="mun-${p}" autocomplete="off" value="${esc(v?.[`${p}_cidade`] ?? '')}"><datalist id="mun-${p}"></datalist></label>
+    <label>UF <select name="${p}_uf" required><option value=""></option>${opcoesDe(UFS.map((u) => [u, u]), v?.[`${p}_uf`])}</select></label>
+    <label>Código IBGE <input name="${p}_ibge" maxlength="7" inputmode="numeric" value="${esc(v?.[`${p}_ibge`] ?? '')}"></label>`;
+
+  abrirDialogo(`
+    <form id="form-viagem" class="dialogo-largo">
+      <h2>${v ? `Viagem nº ${v.numero} ${seloViagem(v.status)}` : 'Nova viagem'}</h2>
+      <div id="avisos-viagem"></div>
+      <fieldset ${fechada ? 'disabled' : ''} style="border:0;padding:0;margin:0">
+      <h3>Notas fiscais da carga</h3>
+      <div id="nfes-viagem"></div>
+      <div class="grade" style="margin-top:8px">
+        <label class="largo">Importar XML das NF-e <input type="file" id="xml-viagem" accept=".xml,text/xml" multiple><span class="dica">Pode escolher vários arquivos de uma vez. Origem, destino e embarcador são preenchidos pela primeira nota.</span></label>
+        <label class="largo">Ou só a chave de acesso <span style="display:flex;gap:6px"><input id="chave-viagem" maxlength="54" inputmode="numeric" placeholder="44 dígitos" style="flex:1"><button type="button" id="add-chave">Incluir</button></span><span class="dica">Fica marcada como incompleta até o XML chegar.</span></label>
+      </div>
+      <h3>Carga e rota</h3>
+      <div class="grade">
+        <label class="largo">Embarcador (quem paga o frete) <select name="embarcador_id" required><option value="">Selecione…</option>${opcoesDe(embarcadores.map((e) => [e.id, e.nome]), v?.embarcador_id)}</select></label>
+        <label class="largo">Produto predominante <input name="produto" maxlength="120" value="${esc(v?.produto ?? '')}"></label>
+      </div>
+      <p class="sutil" style="margin:10px 0 4px"><strong>Origem</strong></p>
+      <div class="grade">${local('origem')}</div>
+      <p class="sutil" style="margin:10px 0 4px"><strong>Destino</strong></p>
+      <div class="grade">${local('destino')}</div>
+      <h3>Veículo, motorista e datas</h3>
+      <div class="grade">
+        <label>Veículo <select name="veiculo_id"><option value="">Definir depois</option>${opcoesDe(veiculos.map((x) => [x.id, `${x.placa} · ${x.tipo} · ${VINCULOS[x.vinculo] ?? ''}`]), v?.veiculo_id)}</select></label>
+        <label>Motorista <select name="motorista_id"><option value="">Definir depois</option>${opcoesDe(motoristas.map((m) => [m.id, m.nome]), v?.motorista_id)}</select></label>
+        <label>Coleta prevista <input name="coleta_prevista" type="date" value="${esc(v?.coleta_prevista ?? '')}"></label>
+        <label>Entrega prevista <input name="entrega_prevista" type="date" value="${esc(v?.entrega_prevista ?? '')}"></label>
+      </div>
+      <h3>Valores</h3>
+      <div class="grade">
+        <label>Frete cobrado do embarcador <input name="valor_frete" data-num inputmode="decimal" required value="${v?.valor_frete ?? ''}"></label>
+        <label id="lbl-terceiro">Frete pago ao terceiro <input name="valor_terceiro" data-num inputmode="decimal" value="${v?.valor_terceiro ?? ''}"></label>
+        <label>Custo estimado <input name="custo_estimado" data-num inputmode="decimal" value="${v?.custo_estimado ?? ''}"><span class="dica">Combustível, pedágio, diárias</span></label>
+        <label>Margem prevista <output id="margem-viagem" style="display:block;padding:9px 0;font-weight:700"></output></label>
+        <label class="largo">Observação <input name="observacao" maxlength="500" value="${esc(v?.observacao ?? '')}"></label>
+      </div>
+      </fieldset>
+      <p class="erro" id="erro-viagem"></p>
+      <div class="acoes">
+        ${fechada ? '' : '<button class="primario" type="submit">Salvar</button>'}
+        <span id="acoes-status"></span>
+        <button type="button" data-fechar>Fechar</button>
+      </div>
+    </form>`, (dlg) => {
+    const f = $('#form-viagem');
+    const erro = (e) => { $('#erro-viagem').textContent = e ? mensagemErro(e) : ''; };
+    ligarMunicipio(f, 'origem'); ligarMunicipio(f, 'destino');
+
+    const vinculoSel = () => veiculos.find((x) => String(x.id) === f.veiculo_id.value)?.vinculo ?? null;
+    const recalcular = () => {
+      const proprio = vinculoSel() === 'PROPRIO';
+      $('#lbl-terceiro').style.display = proprio ? 'none' : '';
+      const m = (numero(f.valor_frete.value) ?? 0) - (proprio ? 0 : numero(f.valor_terceiro.value) ?? 0) - (numero(f.custo_estimado.value) ?? 0);
+      const o = $('#margem-viagem');
+      o.textContent = brl(m); o.className = m < 0 ? 'cor-vermelho' : 'cor-verde';
+    };
+    ['valor_frete', 'valor_terceiro', 'custo_estimado'].forEach((k) => f[k].addEventListener('input', recalcular));
+    f.veiculo_id.addEventListener('change', () => {
+      const x = veiculos.find((y) => String(y.id) === f.veiculo_id.value);
+      if (x?.motorista_id && !f.motorista_id.value) f.motorista_id.value = x.motorista_id; // motorista fixo do veículo
+      recalcular();
+    });
+    recalcular();
+
+    const pintarAvisos = () => {
+      const a = atual?.avisos ?? [];
+      $('#avisos-viagem').innerHTML = a.length ? `<div class="aviso-campo"><strong>Pendências</strong><ul style="margin:4px 0 0;padding-left:18px">${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+    };
+    const pintarNfes = () => {
+      const lista = atual ? atual.nfes_lista.map((n) => ({ ...n, id: n.id })) : pendentes.map((p, i) => ({ ...p.resumo, completa: !!p.xml, i }));
+      const tot = lista.reduce((s, n) => ({ valor: s.valor + (n.valor ?? 0), peso: s.peso + (n.peso_kg ?? 0) }), { valor: 0, peso: 0 });
+      $('#nfes-viagem').innerHTML = lista.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>NF-e</th><th>Emitente</th><th>Destinatário</th><th>Valor</th><th>Peso</th><th></th></tr></thead><tbody>
+        ${lista.map((n) => `<tr>
+          <td><strong>${esc(n.numero ?? '')}</strong>${n.serie ? `<span class="dica">/${esc(n.serie)}</span>` : ''}${n.completa ? '' : ' <span class="selo-conferir">só chave</span>'}<br><span class="dica" style="font-size:11px">${esc(n.chave)}</span></td>
+          <td>${esc(n.emitente_nome ?? fmtDoc(n.emitente_documento))}</td>
+          <td>${esc(n.destinatario_nome ?? '—')}</td>
+          <td>${n.valor != null ? brl(n.valor) : '—'}</td>
+          <td>${pesoFmt(n.peso_kg)}</td>
+          <td>${fechada ? '' : `<button type="button" class="link" data-tirar="${n.id ?? ''}" data-i="${n.i ?? ''}">Tirar</button>`}</td></tr>`).join('')}
+        </tbody><tfoot><tr><td colspan="3"><strong>${lista.length} NF-e</strong></td><td><strong>${brl(tot.valor)}</strong></td><td><strong>${pesoFmt(tot.peso)}</strong></td><td></td></tr></tfoot></table></div>`
+        : '<p class="dica">Nenhuma NF-e ainda.</p>';
+      dlg.querySelectorAll('[data-tirar]').forEach((b) => (b.onclick = async () => {
+        erro();
+        if (!atual) { pendentes.splice(Number(b.dataset.i), 1); pintarNfes(); return; }
+        try { atual = await api('DELETE', `/api/viagens/${atual.id}/nfes/${b.dataset.tirar}`); pintarNfes(); pintarAvisos(); aoSalvar(); } catch (e) { erro(e); }
+      }));
+    };
+
+    // primeira NF-e preenche o que estiver vazio
+    const preencher = (pv) => {
+      if (!f.embarcador_id.value && pv.embarcador_sugerido) f.embarcador_id.value = pv.embarcador_sugerido.id;
+      if (!f.produto.value && pv.produto) f.produto.value = pv.produto;
+      for (const [p, l] of [['origem', pv.origem], ['destino', pv.destino]]) {
+        if (f[`${p}_cidade`].value || !l?.municipio) continue;
+        f[`${p}_cidade`].value = l.municipio; f[`${p}_uf`].value = l.uf ?? ''; f[`${p}_ibge`].value = l.codMunicipio ?? '';
+      }
+    };
+    const incluir = async (entradas) => {
+      erro();
+      if (atual) {
+        try { atual = await api('POST', `/api/viagens/${atual.id}/nfes`, { nfes: entradas.map((x) => (x.xml ? { xml: x.xml } : { chave: x.chave })) }); pintarNfes(); pintarAvisos(); aoSalvar(); }
+        catch (e) { erro(e); }
+        return;
+      }
+      for (const x of entradas) {
+        if (x.xml) {
+          let pv;
+          try { pv = await api('POST', `/api/empresas/${emp}/viagens/ler-nfe`, { xml: x.xml }); } catch (e) { erro(`${x.nome}: ${mensagemErro(e)}`); continue; }
+          if (pv.ja_em_viagem) { erro(`A NF-e ${pv.nfe.numero} já está na viagem nº ${pv.ja_em_viagem}.`); continue; }
+          const ja = pendentes.findIndex((p) => p.resumo.chave === pv.nfe.chave);
+          if (ja >= 0 && pendentes[ja].xml) { erro(`A NF-e ${pv.nfe.numero} já foi incluída.`); continue; }
+          if (ja >= 0) pendentes.splice(ja, 1); // completa a que estava só com a chave
+          if (!pendentes.length) preencher(pv);
+          pendentes.push({ xml: x.xml, resumo: pv.nfe });
+          if (pv.embarcador_sugerido == null && pv.pagador_documento && !f.embarcador_id.value) erro(`O pagador do frete (${fmtDoc(pv.pagador_documento)}) não está cadastrado como embarcador.`);
+        } else {
+          if (pendentes.some((p) => p.resumo.chave === x.chave)) { erro('Esta chave já foi incluída.'); continue; }
+          pendentes.push({ chave: x.chave, resumo: { chave: x.chave, numero: String(Number(x.chave.slice(25, 34))), serie: String(Number(x.chave.slice(22, 25))), emitente_documento: x.chave.slice(6, 20) } });
+        }
+      }
+      pintarNfes();
+    };
+    $('#xml-viagem').onchange = async (ev) => {
+      const arqs = [...ev.target.files];
+      const entradas = await Promise.all(arqs.map(async (a) => ({ nome: a.name, xml: await a.text() })));
+      ev.target.value = '';
+      await incluir(entradas);
+    };
+    $('#add-chave').onclick = async () => {
+      const c = $('#chave-viagem').value.replace(/\D/g, '');
+      if (c.length !== 44) return erro('A chave de acesso tem 44 dígitos.');
+      $('#chave-viagem').value = '';
+      await incluir([{ chave: c }]);
+    };
+
+    const pintarStatus = () => {
+      const st = atual?.status;
+      const botoes = !atual ? [] : {
+        AGUARDANDO_COLETA: [['EM_TRANSITO', 'Coletada: iniciar viagem'], ['CANCELADA', 'Cancelar viagem']],
+        EM_TRANSITO: [['ENTREGUE', 'Marcar como entregue'], ['AGUARDANDO_COLETA', 'Voltar para aguardando coleta'], ['CANCELADA', 'Cancelar viagem']],
+        ENTREGUE: [['EM_TRANSITO', 'Desfazer entrega']],
+        CANCELADA: [],
+      }[st];
+      $('#acoes-status').innerHTML = botoes.map(([k, n]) => `<button type="button" data-st="${k}">${esc(n)}</button>`).join(' ');
+      dlg.querySelectorAll('[data-st]').forEach((b) => (b.onclick = async () => {
+        const k = b.dataset.st;
+        if (k === 'CANCELADA' && !confirm('Cancelar esta viagem? Ela não poderá mais ser alterada, e as NF-e ficam livres para outra viagem.')) return;
+        let data = null;
+        if (k === 'EM_TRANSITO' || k === 'ENTREGUE') {
+          data = prompt(k === 'ENTREGUE' ? 'Data da entrega (dd/mm/aaaa):' : 'Data da coleta (dd/mm/aaaa):', fmtDataBr(hoje()));
+          if (data === null) return;
+          const [d, m, a] = data.split('/');
+          data = a && m && d ? `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` : null;
+        }
+        erro();
+        try { await api('POST', `/api/viagens/${atual.id}/status`, { status: k, data }); dlg.close(); aoSalvar(); } catch (e) { erro(e); }
+      }));
+    };
+
+    f.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const d = lerForm(f);
+      const corpo = {
+        embarcador_id: Number(d.embarcador_id) || 0, produto: d.produto,
+        origem_cidade: d.origem_cidade ?? '', origem_uf: d.origem_uf ?? '', origem_ibge: d.origem_ibge,
+        destino_cidade: d.destino_cidade ?? '', destino_uf: d.destino_uf ?? '', destino_ibge: d.destino_ibge,
+        veiculo_id: d.veiculo_id ? Number(d.veiculo_id) : null, motorista_id: d.motorista_id ? Number(d.motorista_id) : null,
+        valor_frete: d.valor_frete ?? 0, valor_terceiro: vinculoSel() === 'PROPRIO' ? null : d.valor_terceiro, custo_estimado: d.custo_estimado,
+        coleta_prevista: d.coleta_prevista, entrega_prevista: d.entrega_prevista, observacao: d.observacao,
+      };
+      erro();
+      try {
+        if (atual) atual = await api('PUT', `/api/viagens/${atual.id}`, corpo);
+        else atual = await api('POST', `/api/empresas/${emp}/viagens`, { ...corpo, nfes: pendentes.map((p) => (p.xml ? { xml: p.xml } : { chave: p.chave })) });
+        aoSalvar();
+        if (atual.avisos.length) { // fica aberta mostrando o que falta
+          dlg.querySelector('h2').innerHTML = `Viagem nº ${atual.numero} ${seloViagem(atual.status)}`;
+          pendentes = []; pintarNfes(); pintarAvisos(); pintarStatus();
+          aviso('Viagem salva. Confira as pendências.');
+        } else { dlg.close(); aviso(`Viagem nº ${atual.numero} salva.`); }
+      } catch (e) { erro(e); }
+    };
+    pintarNfes(); pintarAvisos(); pintarStatus();
   });
 }
 
@@ -4153,6 +4449,7 @@ const ICONES = {
 ICONES.embarcadores ??= ICONES.tomadores;
 ICONES.motoristas ??= ICONES['o-users'];
 ICONES.transportadores ??= ICONES['o-users'];
+ICONES.viagens ??= 'M3 7h11v8H3zM14 10h4l3 3v2h-7M6.5 17.5a1.5 1.5 0 1 0 0 .01M17.5 17.5a1.5 1.5 0 1 0 0 .01M3 4h6';
 ICONES.veiculos ??= 'M2 6h12v9H2zM14 9h4l4 3v3h-8M7 17.5a1.5 1.5 0 1 0 0 .01M18 17.5a1.5 1.5 0 1 0 0 .01';
 const icone = (k, cls = 'ico') => (ICONES[k] ? `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONES[k]}"/></svg>` : '');
 

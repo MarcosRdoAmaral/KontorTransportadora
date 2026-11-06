@@ -102,8 +102,8 @@ export const Veiculo = z.object({
 
 type Esquema = z.ZodType<Record<string, any>, any>;
 
-const usuarioDe = (req: FastifyRequest) => req.usuario as Usuario;
-function checarEmpresa(req: FastifyRequest, empresaId: number) {
+export const usuarioDe = (req: FastifyRequest) => req.usuario as Usuario;
+export function checarEmpresa(req: FastifyRequest, empresaId: number) {
   if (!empresaPermitida(usuarioDe(req), empresaId)) throw new ErroNegocio('Empresa não encontrada.', 404);
 }
 

@@ -872,6 +872,57 @@ const migracoes: string[] = [
   ALTER TABLE veiculos ADD COLUMN proprietario_id INTEGER REFERENCES transportadores(id) ON DELETE SET NULL;
   ALTER TABLE veiculos DROP COLUMN proprietario_nome;
   ALTER TABLE veiculos DROP COLUMN proprietario_documento;`,
+  // Viagens: a carga do embarcador entre origem e destino, com veículo, motorista, frete e as NF-e que ela leva.
+  // A NF-e pode entrar pelo XML (completa) ou só pela chave de 44 dígitos (incompleta até chegar o XML).
+  `CREATE TABLE viagens (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    numero INTEGER NOT NULL,
+    embarcador_id INTEGER NOT NULL REFERENCES embarcadores(id),
+    produto TEXT,
+    origem_cidade TEXT NOT NULL,
+    origem_uf TEXT NOT NULL,
+    origem_ibge TEXT,
+    destino_cidade TEXT NOT NULL,
+    destino_uf TEXT NOT NULL,
+    destino_ibge TEXT,
+    veiculo_id INTEGER REFERENCES veiculos(id),
+    motorista_id INTEGER REFERENCES motoristas(id),
+    vinculo TEXT CHECK (vinculo IN ('PROPRIO','AGREGADO','AUTONOMO')),
+    valor_frete REAL NOT NULL DEFAULT 0,
+    valor_terceiro REAL,
+    custo_estimado REAL,
+    coleta_prevista TEXT,
+    entrega_prevista TEXT,
+    status TEXT NOT NULL DEFAULT 'AGUARDANDO_COLETA' CHECK (status IN ('AGUARDANDO_COLETA','EM_TRANSITO','ENTREGUE','CANCELADA')),
+    coletada_em TEXT,
+    entregue_em TEXT,
+    observacao TEXT,
+    criado_por INTEGER,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (empresa_id, numero)
+  );
+  CREATE INDEX ix_viagens_empresa_status ON viagens(empresa_id, status);
+
+  CREATE TABLE viagem_nfes (
+    id INTEGER PRIMARY KEY,
+    viagem_id INTEGER NOT NULL REFERENCES viagens(id) ON DELETE CASCADE,
+    chave TEXT NOT NULL,
+    numero TEXT,
+    serie TEXT,
+    emissao TEXT,
+    emitente_documento TEXT,
+    emitente_nome TEXT,
+    destinatario_documento TEXT,
+    destinatario_nome TEXT,
+    valor REAL,
+    peso_kg REAL,
+    volumes INTEGER,
+    xml TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (viagem_id, chave)
+  );
+  CREATE INDEX ix_viagem_nfes_chave ON viagem_nfes(chave);`,
 ];
 
 export function migrar(): void {

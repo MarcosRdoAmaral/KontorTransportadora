@@ -29,6 +29,7 @@ import { criarBackup, listarBackups } from './servicos/backup.js';
 import { analisarPlanilha, importarLote } from './servicos/importar-clientes.js';
 import { consultarCnpj } from './servicos/consulta-cnpj.js';
 import { registrarTransporte } from './servicos/transporte.js';
+import { registrarViagens } from './servicos/viagens.js';
 import { strToU8, zipSync } from 'fflate';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -326,6 +327,7 @@ export async function rotas(app: FastifyInstance) {
     });
 
     registrarTransporte(api);
+  registrarViagens(api);
 
     // ---------- Tomadores ----------
     type ServicoPadrao = { servico_id: number; valor: number; descricao: string | null; padrao?: boolean | null };

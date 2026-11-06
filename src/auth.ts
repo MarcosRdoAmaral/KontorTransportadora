@@ -11,7 +11,7 @@ export type Tipo = 'adm' | 'normal';
 export const MODULOS = {
   painel: 'Painel do mês', emitir: 'Emitir nota', notas: 'Notas emitidas', cobrancas: 'Cobranças',
   banco: 'Dados bancários', despesas: 'Despesas e balanço', tomadores: 'Clientes', servicos: 'Serviços', empresas: 'Empresas', relatorios: 'Relatórios', compras: 'Compras', tributacao: 'Tributação',
-  embarcadores: 'Embarcadores', frota: 'Frota e motoristas',
+  embarcadores: 'Embarcadores', frota: 'Frota e motoristas', viagens: 'Viagens',
   excluir: 'Excluir registros',
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -73,6 +73,10 @@ const REGRAS: Regra[] = [
   { r: /^\/api\/empresas\/\d+\/orcamentos(\/\d+(\/(duplicar|situacao|conversao|pdf|email))?)?$/, mod: ['emitir'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/tomadores$/, mod: ['tomadores', 'emitir', 'cobrancas'] },
   { r: /^\/api\/empresas\/\d+\/tomadores(\/planilha\/(analisar|importar))?$|^\/api\/tomadores\/\d+$/, mod: ['tomadores'] },
+  { r: /^\/api\/empresas\/\d+\/viagens(\/ler-nfe)?$|^\/api\/viagens\/\d+(\/(status|nfes(\/\d+)?))?$/, mod: ['viagens'] },
+  // a tela de viagens lista embarcadores, veículos e motoristas para escolher
+  { m: 'GET', r: /^\/api\/empresas\/\d+\/embarcadores$/, mod: ['viagens', 'embarcadores'] },
+  { m: 'GET', r: /^\/api\/empresas\/\d+\/(veiculos|motoristas)$/, mod: ['viagens', 'frota'] },
   { r: /^\/api\/empresas\/\d+\/embarcadores$|^\/api\/embarcadores\/\d+$/, mod: ['embarcadores'] },
   { r: /^\/api\/empresas\/\d+\/(veiculos|motoristas|transportadores)$|^\/api\/(veiculos|motoristas|transportadores)\/\d+$/, mod: ['frota'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/servicos$/, mod: ['servicos', 'emitir'] },
