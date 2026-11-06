@@ -18,7 +18,10 @@ process.env.NFSE_MACHINE_ID = 'guid-estavel-do-computador';
 process.env.KONTOR_MARCAS = [marcas1, marcas2].join(path.delimiter);
 delete process.env.ADMIN_SENHA;
 
-test('teste de 7 dias: não reinicia ao apagar o banco, não volta o relógio e não aceita marca adulterada', async () => {
+// Enquanto a chave pública do Transportadora não for gerada (src/licenca-chave.ts), o aplicativo roda sem controle de licença e este teste não se aplica.
+const { CHAVE_PUBLICA } = await import('../src/licenca-chave.js');
+
+test('teste de 7 dias: não reinicia ao apagar o banco, não volta o relógio e não aceita marca adulterada', { skip: CHAVE_PUBLICA ? false : 'chave de licença ainda não gerada' }, async () => {
   const L = await import('../src/licenca.js');
   const { db } = await import('../src/db.js');
   const { criarApp } = await import('../src/server.js');
