@@ -61,4 +61,10 @@ jobs:
       - name: Criar release
         if: steps.ja.outputs.existe == '0'
         # No repositório público a tag aponta para o branch padrão dele (lá não existe o commit do código)
-        run: gh release create "v${{ steps.v.outputs.versao }}" release/Kontor-Transportadora-Instalador-* --repo "$REPO_RELEASES" $( [ "$REPO_RELEASES" = "${{ github.repository }}" ] && echo "--target ${GITHUB_SHA}" ) --title "Kontor Gestão Transportadora ${{ steps.v.outputs.versao }}" $( [ -f "novidades/${{ steps.v.outputs.versao }}.md" ] && echo "--notes-file novidades/${{ steps.v.outputs.versao }}.md" || echo "--notes Melhorias e correções de desempenho e estabilidade." )
+        run: |
+          V="${{ steps.v.outputs.versao }}"
+          NOTAS="novidades/$V.md"
+          if [ ! -f "$NOTAS" ]; then echo "Melhorias e correções de desempenho e estabilidade." > /tmp/notas.md; NOTAS=/tmp/notas.md; fi
+          ALVO=()
+          if [ "$REPO_RELEASES" = "${{ github.repository }}" ]; then ALVO=(--target "$GITHUB_SHA"); fi
+          gh release create "v$V" release/Kontor-Transportadora-Instalador-* --repo "$REPO_RELEASES" "${ALVO[@]}" --title "Kontor Gestão Transportadora $V" --notes-file "$NOTAS"
