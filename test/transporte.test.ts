@@ -23,19 +23,24 @@ test('cadastros da transportadora: embarcador, motorista e veículo com vínculo
 
     // embarcador: documento válido, sem repetir, excluir só inativa
     assert.equal((await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '11.111.111/0001-11', nome: 'Alfa' }, t)).status, 400, 'CNPJ inválido');
-    const emb = (await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '45.723.174/0001-10', nome: 'Indústria Alfa', uf: 'sc', prazo_pagamento_dias: 30 }, t)).json;
+    const emb = (await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '45.723.174/0001-10', nome: 'Indústria Alfa', uf: 'sc', prazo_pagamento_dias: 30, inscricao_estadual: '25.123.456-7', cep: '89.200-000', cod_municipio: '4209102' }, t)).json;
     assert.ok(emb.id);
-    assert.match((await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '45723174000110', nome: 'Repetido' }, t)).json.erro, /Já existe embarcador/);
+    // contribuinte exige IE; município IBGE tem 7 dígitos
+    assert.equal((await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '13.269.205/0001-19', nome: 'Sem IE' }, t)).status, 400);
+    assert.equal((await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '13.269.205/0001-19', nome: 'IBGE ruim', ind_contribuinte: 9, cod_municipio: '123' }, t)).status, 400);
+    assert.match((await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '45723174000110', nome: 'Repetido', ind_contribuinte: 9 }, t)).json.erro, /Já existe embarcador/);
     let lista = (await call('GET', `${base}/embarcadores`, undefined, t)).json;
     assert.equal(lista.length, 1);
     assert.equal(lista[0].uf, 'SC');
     assert.equal(lista[0].prazo_pagamento_dias, 30);
-    assert.equal((await call('PUT', `/api/embarcadores/${emb.id}`, { tipo_doc: 'CNPJ', documento: '45723174000110', nome: 'Indústria Alfa SA', prazo_pagamento_dias: 45 }, t)).status, 200);
+    assert.equal(lista[0].inscricao_estadual, '251234567');
+    assert.equal(lista[0].cep, '89200000');
+    assert.equal((await call('PUT', `/api/embarcadores/${emb.id}`, { tipo_doc: 'CNPJ', documento: '45723174000110', nome: 'Indústria Alfa SA', prazo_pagamento_dias: 45, inscricao_estadual: '251234567' }, t)).status, 200);
     assert.equal((await call('GET', `${base}/embarcadores?q=alfa`, undefined, t)).json[0].nome, 'Indústria Alfa SA');
     assert.equal((await call('DELETE', `/api/embarcadores/${emb.id}`, undefined, t)).status, 200);
     assert.equal((await call('GET', `${base}/embarcadores`, undefined, t)).json.length, 0);
     // cadastrar de novo traz de volta o excluído
-    const volta = (await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '45723174000110', nome: 'Indústria Alfa' }, t)).json;
+    const volta = (await call('POST', `${base}/embarcadores`, { tipo_doc: 'CNPJ', documento: '45723174000110', nome: 'Indústria Alfa', ind_contribuinte: 9 }, t)).json;
     assert.equal(volta.id, emb.id);
 
     // motorista
@@ -54,14 +59,29 @@ test('cadastros da transportadora: embarcador, motorista e veículo com vínculo
     const semDono = await call('POST', `${base}/veiculos`, { placa: 'XYZ5678', tipo: 'Carreta', vinculo: 'AGREGADO' }, t);
     assert.equal(semDono.status, 400);
     assert.match(JSON.stringify(semDono.json), /proprietário/);
-    const v2 = (await call('POST', `${base}/veiculos`, { placa: 'XYZ5678', tipo: 'Carreta', vinculo: 'AGREGADO', proprietario_nome: 'Transp. Rota Sul', proprietario_documento: '45.723.174/0001-10' }, t)).json;
+    // transportador terceiro (dono do agregado): RNTRC de 8 dígitos
+    assert.equal((await call('POST', `${base}/transportadores`, { tipo_doc: 'CNPJ', documento: '13.269.205/0001-19', nome: 'Rota Sul', rntrc: '123' }, t)).status, 400, 'RNTRC curto');
+    const dono = (await call('POST', `${base}/transportadores`, { tipo_doc: 'CNPJ', documento: '13.269.205/0001-19', nome: 'Transp. Rota Sul', rntrc: '01234567', uf: 'sc', dados_pagamento: 'Pix 13.269.205/0001-19' }, t)).json;
+    assert.ok(dono.id);
+    assert.match((await call('POST', `${base}/transportadores`, { tipo_doc: 'CNPJ', documento: '13269205000119', nome: 'Repetido' }, t)).json.erro, /Já existe transportador/);
+    const v2 = (await call('POST', `${base}/veiculos`, { placa: 'XYZ5678', tipo: 'Carreta', vinculo: 'AGREGADO', proprietario_id: dono.id, renavam: '12345678901', uf_licenciamento: 'sc', tara_kg: 7500, tipo_carroceria: 'Sider', tipo_rodado: 'Cavalo mecânico' }, t)).json;
     assert.ok(v2.id);
+    assert.equal((await call('POST', `${base}/veiculos`, { placa: 'QQQ1A11', tipo: 'Carreta', vinculo: 'AGREGADO', proprietario_id: 99999 }, t)).status, 400, 'proprietário de outra empresa');
+    assert.equal((await call('POST', `${base}/veiculos`, { placa: 'QQQ1A11', tipo: 'Carreta', vinculo: 'PROPRIO', tipo_carroceria: 'Voadora' }, t)).status, 400, 'carroceria inexistente');
+    // transportador com veículo ativo não pode ser excluído
+    assert.equal((await call('DELETE', `/api/transportadores/${dono.id}`, undefined, t)).status, 400);
+    assert.equal((await call('GET', `${base}/transportadores`, undefined, t)).json.length, 1);
     // frota própria não guarda proprietário
-    assert.equal((await call('PUT', `/api/veiculos/${v1.id}`, { ...proprio, proprietario_nome: 'Fulano' }, t)).status, 200);
+    assert.equal((await call('PUT', `/api/veiculos/${v1.id}`, { ...proprio, proprietario_id: dono.id }, t)).status, 200);
     const veiculos = (await call('GET', `${base}/veiculos`, undefined, t)).json;
     assert.equal(veiculos.length, 2);
     const p = veiculos.find((v: any) => v.placa === 'ABC1D23');
-    assert.equal(p.proprietario_nome, null);
+    assert.equal(p.proprietario_id, null);
+    const ag = veiculos.find((v: any) => v.placa === 'XYZ5678');
+    assert.equal(ag.proprietario_nome, 'Transp. Rota Sul');
+    assert.equal(ag.proprietario_rntrc, '01234567');
+    assert.equal(ag.uf_licenciamento, 'SC');
+    assert.equal(ag.tara_kg, 7500);
     assert.equal(p.motorista_nome, 'Carlos Silva');
     assert.equal(p.capacidade_kg, 14000);
     assert.equal((await call('POST', `${base}/veiculos`, { placa: 'DEF9012', tipo: 'Toco', vinculo: 'PROPRIO', motorista_id: 99999 }, t)).status, 400, 'motorista de outra empresa');
@@ -82,6 +102,7 @@ test('cadastros da transportadora: embarcador, motorista e veículo com vínculo
     const tj = (await call('POST', '/api/login', { usuario: 'joao', senha: 'joao-nova-123' })).json.token;
     assert.equal((await call('GET', `${base}/embarcadores`, undefined, tj)).status, 200);
     assert.equal((await call('GET', `${base}/veiculos`, undefined, tj)).status, 403);
+    assert.equal((await call('GET', `${base}/transportadores`, undefined, tj)).status, 403);
     assert.equal((await call('GET', `${base}/motoristas`, undefined, tj)).status, 403);
   } finally { await app.close(); }
 });

@@ -74,7 +74,7 @@ const REGRAS: Regra[] = [
   { m: 'GET', r: /^\/api\/empresas\/\d+\/tomadores$/, mod: ['tomadores', 'emitir', 'cobrancas'] },
   { r: /^\/api\/empresas\/\d+\/tomadores(\/planilha\/(analisar|importar))?$|^\/api\/tomadores\/\d+$/, mod: ['tomadores'] },
   { r: /^\/api\/empresas\/\d+\/embarcadores$|^\/api\/embarcadores\/\d+$/, mod: ['embarcadores'] },
-  { r: /^\/api\/empresas\/\d+\/(veiculos|motoristas)$|^\/api\/(veiculos|motoristas)\/\d+$/, mod: ['frota'] },
+  { r: /^\/api\/empresas\/\d+\/(veiculos|motoristas|transportadores)$|^\/api\/(veiculos|motoristas|transportadores)\/\d+$/, mod: ['frota'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/servicos$/, mod: ['servicos', 'emitir'] },
   { r: /^\/api\/empresas\/\d+\/servicos$|^\/api\/servicos\/\d+$/, mod: ['servicos'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/conta-bancaria$/, mod: ['banco', 'empresas', 'cobrancas', 'emitir'] },

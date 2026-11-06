@@ -828,6 +828,50 @@ const migracoes: string[] = [
   CREATE INDEX ix_embarcadores_empresa ON embarcadores(empresa_id);
   CREATE INDEX ix_motoristas_empresa ON motoristas(empresa_id);
   CREATE INDEX ix_veiculos_empresa ON veiculos(empresa_id);`,
+  // Transportadora: dados que o CT-e e o MDF-e exigem. Embarcador com endereço e inscrição estadual; transportador terceiro
+  // (dono do veículo agregado ou autônomo, com RNTRC); veículo com RENAVAM, tara, carroceria, rodado e ligação ao proprietário.
+  `ALTER TABLE embarcadores ADD COLUMN inscricao_estadual TEXT;
+  ALTER TABLE embarcadores ADD COLUMN ind_contribuinte INTEGER NOT NULL DEFAULT 1 CHECK (ind_contribuinte IN (1,2,9));
+  ALTER TABLE embarcadores ADD COLUMN cep TEXT;
+  ALTER TABLE embarcadores ADD COLUMN logradouro TEXT;
+  ALTER TABLE embarcadores ADD COLUMN numero TEXT;
+  ALTER TABLE embarcadores ADD COLUMN complemento TEXT;
+  ALTER TABLE embarcadores ADD COLUMN bairro TEXT;
+  ALTER TABLE embarcadores ADD COLUMN cod_municipio TEXT;
+
+  CREATE TABLE transportadores (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    tipo_doc TEXT NOT NULL CHECK (tipo_doc IN ('CPF','CNPJ')),
+    documento TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    rntrc TEXT,
+    inscricao_estadual TEXT,
+    email TEXT,
+    fone TEXT,
+    cep TEXT,
+    logradouro TEXT,
+    numero TEXT,
+    complemento TEXT,
+    bairro TEXT,
+    cod_municipio TEXT,
+    cidade TEXT,
+    uf TEXT,
+    dados_pagamento TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (empresa_id, documento)
+  );
+  CREATE INDEX ix_transportadores_empresa ON transportadores(empresa_id);
+
+  ALTER TABLE veiculos ADD COLUMN renavam TEXT;
+  ALTER TABLE veiculos ADD COLUMN uf_licenciamento TEXT;
+  ALTER TABLE veiculos ADD COLUMN tara_kg REAL;
+  ALTER TABLE veiculos ADD COLUMN tipo_carroceria TEXT;
+  ALTER TABLE veiculos ADD COLUMN tipo_rodado TEXT;
+  ALTER TABLE veiculos ADD COLUMN proprietario_id INTEGER REFERENCES transportadores(id) ON DELETE SET NULL;
+  ALTER TABLE veiculos DROP COLUMN proprietario_nome;
+  ALTER TABLE veiculos DROP COLUMN proprietario_documento;`,
 ];
 
 export function migrar(): void {

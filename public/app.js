@@ -423,13 +423,13 @@ async function iniciar() {
 
 /** A tela pertence a algum módulo liberado para o usuário? (o servidor confere de novo em cada chamada) */
 function telaPermitida(nome) {
-  const modulo = { painel: 'painel', emitir: 'emitir', orcamentos: 'emitir', orcamento: 'emitir', notas: 'notas', nota: 'notas', cobrancas: 'cobrancas', banco: 'empresas', despesas: 'despesas', compras: 'compras', entradas: 'compras', 'compra-nova': 'compras', 'nfe-sefaz': 'compras', tributacao: 'tributacao', extrato: 'despesas', cartao: 'despesas', agenda: 'emitir', relatorios: 'relatorios', tomadores: 'tomadores', servicos: 'servicos', empresas: 'empresas', embarcadores: 'embarcadores', veiculos: 'frota', motoristas: 'frota' }[nome];
+  const modulo = { painel: 'painel', emitir: 'emitir', orcamentos: 'emitir', orcamento: 'emitir', notas: 'notas', nota: 'notas', cobrancas: 'cobrancas', banco: 'empresas', despesas: 'despesas', compras: 'compras', entradas: 'compras', 'compra-nova': 'compras', 'nfe-sefaz': 'compras', tributacao: 'tributacao', extrato: 'despesas', cartao: 'despesas', agenda: 'emitir', relatorios: 'relatorios', tomadores: 'tomadores', servicos: 'servicos', empresas: 'empresas', embarcadores: 'embarcadores', veiculos: 'frota', motoristas: 'frota', transportadores: 'frota' }[nome];
   return nome === 'config' || nome === 'inicio' || (modulo && estado.usuario.modulos.includes(modulo));
 }
 
 const rotas = {
   inicio: telaInicio, painel: telaPainel, emitir: telaEmitir, orcamentos: telaOrcamentos, orcamento: telaOrcamento, notas: telaNotas, nota: telaNota,
-  cobrancas: telaCobrancas, banco: telaBanco, despesas: telaDespesas, compras: telaCompras, entradas: telaCompras, 'compra-nova': telaCompraManual, 'nfe-sefaz': telaNfeSefaz, tributacao: telaTributacao, extrato: telaExtrato, cartao: telaCartao, agenda: telaAgenda, relatorios: telaRelatorios, tomadores: telaTomadores, servicos: telaServicos, empresas: telaEmpresas, embarcadores: telaEmbarcadores, veiculos: telaVeiculos, motoristas: telaMotoristas, config: telaConfig,
+  cobrancas: telaCobrancas, banco: telaBanco, despesas: telaDespesas, compras: telaCompras, entradas: telaCompras, 'compra-nova': telaCompraManual, 'nfe-sefaz': telaNfeSefaz, tributacao: telaTributacao, extrato: telaExtrato, cartao: telaCartao, agenda: telaAgenda, relatorios: telaRelatorios, tomadores: telaTomadores, servicos: telaServicos, empresas: telaEmpresas, embarcadores: telaEmbarcadores, transportadores: telaTransportadores, veiculos: telaVeiculos, motoristas: telaMotoristas, config: telaConfig,
 };
 
 function rotear() {
@@ -3036,6 +3036,21 @@ function importarPlanilhaClientes() {
 const VINCULOS = { PROPRIO: 'Frota própria', AGREGADO: 'Agregado', AUTONOMO: 'Autônomo' };
 const TIPOS_VEICULO = ['Fiorino/Van', 'VUC', '3/4', 'Toco', 'Truck', 'Bitruck', 'Carreta', 'Bitrem', 'Rodotrem', 'Outro'];
 const CATEGORIAS_CNH = ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE'];
+const TIPOS_CARROCERIA = ['Aberta', 'Fechada/Baú', 'Granelera', 'Porta-contêiner', 'Sider', 'Tanque', 'Outra'];
+const TIPOS_RODADO = ['Truck', 'Toco', 'Cavalo mecânico', 'VAN', 'Utilitário', 'Outros'];
+const IND_CONTRIBUINTE = { 1: 'Contribuinte do ICMS', 2: 'Contribuinte isento', 9: 'Não contribuinte' };
+const CAMPOS_ENDERECO = ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cod_municipio', 'cidade', 'uf'];
+/** Campos de endereço completo (o município pelo código IBGE de 7 dígitos, que o CT-e e o MDF-e exigem). */
+const enderecoHtml = (x) => `
+  <label>CEP <input name="cep" maxlength="9" value="${esc(x?.cep ?? '')}"></label>
+  <label class="largo">Logradouro <input name="logradouro" maxlength="120" value="${esc(x?.logradouro ?? '')}"></label>
+  <label>Número <input name="numero" maxlength="20" value="${esc(x?.numero ?? '')}"></label>
+  <label>Complemento <input name="complemento" maxlength="60" value="${esc(x?.complemento ?? '')}"></label>
+  <label>Bairro <input name="bairro" maxlength="60" value="${esc(x?.bairro ?? '')}"></label>
+  <label>Cidade <input name="cidade" maxlength="60" value="${esc(x?.cidade ?? '')}"></label>
+  <label>UF <input name="uf" maxlength="2" value="${esc(x?.uf ?? '')}"></label>
+  <label>Código do município (IBGE) <input name="cod_municipio" maxlength="7" inputmode="numeric" value="${esc(x?.cod_municipio ?? '')}"></label>`;
+const enderecoCorpo = (v) => Object.fromEntries(CAMPOS_ENDERECO.map((k) => [k, v[k]]));
 const soAlfanum = (s) => String(s ?? '').replace(/[^0-9A-Za-z]/g, '');
 const fmtDataBr = (d) => (d ? d.split('-').reverse().join('/') : '');
 const opcoesDe = (itens, atual) => itens.map(([k, n]) => `<option value="${esc(k)}" ${String(atual ?? '') === String(k) ? 'selected' : ''}>${esc(n)}</option>`).join('');
@@ -3114,16 +3129,49 @@ async function telaEmbarcadores() {
       html: `<div class="grade">
         <label>CNPJ / CPF <input name="documento" required value="${esc(x?.documento ?? '')}"></label>
         <label class="largo">Nome / Razão social <input name="nome" required value="${esc(x?.nome ?? '')}"></label>
+        <label>Inscrição estadual <input name="inscricao_estadual" maxlength="20" value="${esc(x?.inscricao_estadual ?? '')}"></label>
+        <label>Indicador de contribuinte <select name="ind_contribuinte">${opcoesDe(Object.entries(IND_CONTRIBUINTE), x?.ind_contribuinte ?? 1)}</select></label>
         <label>E-mail <input name="email" type="email" value="${esc(x?.email ?? '')}"></label>
         <label>Telefone / WhatsApp <input name="fone" value="${esc(x?.fone ?? '')}"></label>
-        <label>Cidade <input name="cidade" maxlength="60" value="${esc(x?.cidade ?? '')}"></label>
-        <label>UF <input name="uf" maxlength="2" value="${esc(x?.uf ?? '')}"></label>
+        ${enderecoHtml(x)}
         <label>Prazo de pagamento (dias) <input name="prazo" data-num inputmode="numeric" value="${x?.prazo_pagamento_dias ?? 15}"></label>
         <label class="largo">Observação <input name="observacao" maxlength="500" value="${esc(x?.observacao ?? '')}"></label>
       </div>`,
       corpo: (v) => ({
-        tipo_doc: soAlfanum(v.documento).length === 11 ? 'CPF' : 'CNPJ', documento: v.documento ?? '', nome: v.nome ?? '', email: v.email, fone: v.fone,
-        cidade: v.cidade, uf: v.uf, prazo_pagamento_dias: v.prazo ?? 15, observacao: v.observacao,
+        tipo_doc: soAlfanum(v.documento).length === 11 ? 'CPF' : 'CNPJ', documento: v.documento ?? '', nome: v.nome ?? '',
+        inscricao_estadual: v.inscricao_estadual, ind_contribuinte: Number(v.ind_contribuinte), email: v.email, fone: v.fone,
+        ...enderecoCorpo(v), prazo_pagamento_dias: v.prazo ?? 15, observacao: v.observacao,
+      }),
+    }),
+  });
+}
+
+async function telaTransportadores() {
+  return telaCadastroTransporte({
+    rota: 'transportadores', titulo: 'Transportadores terceiros', subtitulo: 'Proprietários de veículos agregados e autônomos', botao: 'Cadastrar transportador',
+    placeholderBusca: 'Buscar por nome, CNPJ/CPF ou RNTRC', vazio: 'Nenhum transportador terceiro cadastrado.',
+    colunas: [
+      { titulo: 'Nome', valor: (x) => esc(x.nome) },
+      { titulo: 'Documento', valor: (x) => esc(fmtDoc(x.documento)) },
+      { titulo: 'RNTRC', valor: (x) => esc(x.rntrc ?? '') },
+      { titulo: 'Cidade', valor: (x) => esc([x.cidade, x.uf].filter(Boolean).join(' / ')) },
+      { titulo: 'Telefone', valor: (x) => esc(x.fone ?? '') },
+    ],
+    formulario: (x, aoSalvar) => formTransporte({
+      rotulo: 'transportador', rota: 'transportadores', item: x, aoSalvar,
+      html: `<div class="grade">
+        <label>CNPJ / CPF <input name="documento" required value="${esc(x?.documento ?? '')}"></label>
+        <label class="largo">Nome / Razão social <input name="nome" required value="${esc(x?.nome ?? '')}"></label>
+        <label>RNTRC (ANTT) <input name="rntrc" maxlength="8" inputmode="numeric" value="${esc(x?.rntrc ?? '')}"></label>
+        <label>Inscrição estadual <input name="inscricao_estadual" maxlength="20" value="${esc(x?.inscricao_estadual ?? '')}"></label>
+        <label>E-mail <input name="email" type="email" value="${esc(x?.email ?? '')}"></label>
+        <label>Telefone / WhatsApp <input name="fone" value="${esc(x?.fone ?? '')}"></label>
+        ${enderecoHtml(x)}
+        <label class="largo">Dados para pagamento (Pix ou conta) <input name="dados_pagamento" maxlength="300" value="${esc(x?.dados_pagamento ?? '')}"></label>
+      </div>`,
+      corpo: (v) => ({
+        tipo_doc: soAlfanum(v.documento).length === 11 ? 'CPF' : 'CNPJ', documento: v.documento ?? '', nome: v.nome ?? '', rntrc: v.rntrc,
+        inscricao_estadual: v.inscricao_estadual, email: v.email, fone: v.fone, ...enderecoCorpo(v), dados_pagamento: v.dados_pagamento,
       }),
     }),
   });
@@ -3173,6 +3221,7 @@ async function telaVeiculos() {
     ],
     formulario: async (x, aoSalvar) => {
       const motoristas = await api('GET', `/api/empresas/${estado.empresaId}/motoristas`).catch(() => []);
+      const donos = await api('GET', `/api/empresas/${estado.empresaId}/transportadores`).catch(() => []);
       formTransporte({
         rotulo: 'veículo', rota: 'veiculos', item: x, aoSalvar,
         html: `<div class="grade">
@@ -3181,9 +3230,16 @@ async function telaVeiculos() {
           <label>Capacidade (kg) <input name="capacidade_kg" data-num inputmode="decimal" value="${x?.capacidade_kg ?? ''}"></label>
           <label>Vínculo <select name="vinculo" id="vei-vinculo">${opcoesDe(Object.entries(VINCULOS), x?.vinculo ?? 'PROPRIO')}</select></label>
         </div>
+        <div class="grade" style="margin-top:10px">
+          <label>RENAVAM <input name="renavam" maxlength="11" inputmode="numeric" value="${esc(x?.renavam ?? '')}"></label>
+          <label>UF de licenciamento <input name="uf_licenciamento" maxlength="2" value="${esc(x?.uf_licenciamento ?? '')}"></label>
+          <label>Tara (kg) <input name="tara_kg" data-num inputmode="decimal" value="${x?.tara_kg ?? ''}"></label>
+          <label>Tipo de carroceria <select name="tipo_carroceria"><option value="">—</option>${opcoesDe(TIPOS_CARROCERIA.map((t) => [t, t]), x?.tipo_carroceria)}</select></label>
+          <label>Tipo de rodado <select name="tipo_rodado"><option value="">—</option>${opcoesDe(TIPOS_RODADO.map((t) => [t, t]), x?.tipo_rodado)}</select></label>
+        </div>
         <div class="grade" id="vei-dono" style="margin-top:10px">
-          <label class="largo">Proprietário do veículo <input name="proprietario_nome" maxlength="200" value="${esc(x?.proprietario_nome ?? '')}"></label>
-          <label>CNPJ / CPF do proprietário <input name="proprietario_documento" value="${esc(x?.proprietario_documento ?? '')}"></label>
+          <label class="largo">Proprietário do veículo <select name="proprietario_id"><option value="">Selecione…</option>${opcoesDe(donos.map((d) => [d.id, `${d.nome} · ${fmtDoc(d.documento)}${d.rntrc ? ' · RNTRC ' + d.rntrc : ''}`]), x?.proprietario_id)}</select>
+            <span class="dica">Cadastre o dono em <a href="#/transportadores" data-fechar>Transportadores terceiros</a> antes, se ainda não existir.</span></label>
         </div>
         <div class="grade" style="margin-top:10px">
           <label class="largo">Motorista <select name="motorista_id"><option value="">Sem motorista fixo</option>${opcoesDe(motoristas.map((m) => [m.id, `${m.nome} (${VINCULOS[m.vinculo] ?? m.vinculo})`]), x?.motorista_id)}</select></label>
@@ -3198,7 +3254,8 @@ async function telaVeiculos() {
         },
         corpo: (v) => ({
           placa: v.placa ?? '', tipo: v.tipo, capacidade_kg: v.capacidade_kg, vinculo: v.vinculo,
-          proprietario_nome: v.vinculo === 'PROPRIO' ? null : v.proprietario_nome, proprietario_documento: v.vinculo === 'PROPRIO' ? null : v.proprietario_documento,
+          renavam: v.renavam, uf_licenciamento: v.uf_licenciamento, tara_kg: v.tara_kg, tipo_carroceria: v.tipo_carroceria, tipo_rodado: v.tipo_rodado,
+          proprietario_id: v.vinculo === 'PROPRIO' || !v.proprietario_id ? null : Number(v.proprietario_id),
           motorista_id: v.motorista_id ? Number(v.motorista_id) : null,
           crlv_vencimento: v.crlv_vencimento, seguro_vencimento: v.seguro_vencimento, ipva_vencimento: v.ipva_vencimento,
         }),
@@ -4095,6 +4152,7 @@ const ICONES = {
 };
 ICONES.embarcadores ??= ICONES.tomadores;
 ICONES.motoristas ??= ICONES['o-users'];
+ICONES.transportadores ??= ICONES['o-users'];
 ICONES.veiculos ??= 'M2 6h12v9H2zM14 9h4l4 3v3h-8M7 17.5a1.5 1.5 0 1 0 0 .01M18 17.5a1.5 1.5 0 1 0 0 .01';
 const icone = (k, cls = 'ico') => (ICONES[k] ? `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONES[k]}"/></svg>` : '');
 
