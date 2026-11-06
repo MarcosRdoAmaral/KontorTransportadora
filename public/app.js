@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Kontor Gestão Empresas — interface (JavaScript puro, sem build)
+// Kontor Gestão Transportadora — interface (JavaScript puro, sem build)
 // ---------------------------------------------------------------------------
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -375,7 +375,7 @@ function infoEmpresa() {
   const dias = e.cert_validade ? Math.floor((new Date(e.cert_validade) - Date.now()) / 864e5) : null;
   $('#empresa-atual').title = e.razao_social;
   $('#info-empresa').innerHTML = `${fmtDoc(e.documento)}<br>
-    ${e.ambiente === 1 ? 'Produção' : '<span class="alerta">Produção restrita (testes)</span>'} · série ${esc(e.serie)}<br>
+    ${e.ambiente === 1 ? 'Produção' : '<span class="alerta">Homologação (testes)</span>'}<br>
     ${!e.tem_certificado ? `<span class="alerta selo-cert ruim">${icone('alerta')}Sem certificado A1</span>`
       : dias < 0 ? `<span class="alerta selo-cert ruim">${icone('alerta')}Certificado vencido em ${dataBr(e.cert_validade)}</span>`
       : dias < 30 ? `<span class="alerta selo-cert aviso">${icone('alerta')}Certificado vence em ${dias} dias</span>`
@@ -423,12 +423,12 @@ async function iniciar() {
 
 /** A tela pertence a algum módulo liberado para o usuário? (o servidor confere de novo em cada chamada) */
 function telaPermitida(nome) {
-  const modulo = { painel: 'painel', emitir: 'emitir', orcamentos: 'emitir', orcamento: 'emitir', notas: 'notas', nota: 'notas', cobrancas: 'cobrancas', banco: 'empresas', despesas: 'despesas', compras: 'compras', entradas: 'compras', 'compra-nova': 'compras', 'nfe-sefaz': 'compras', tributacao: 'tributacao', extrato: 'despesas', cartao: 'despesas', agenda: 'emitir', relatorios: 'relatorios', tomadores: 'tomadores', servicos: 'servicos', empresas: 'empresas', embarcadores: 'embarcadores', veiculos: 'frota', motoristas: 'frota', transportadores: 'frota', viagens: 'viagens' }[nome];
+  const modulo = { painel: 'painel', emitir: 'emitir', orcamentos: 'emitir', orcamento: 'emitir', notas: 'notas', nota: 'notas', cobrancas: 'cobrancas', banco: 'empresas', despesas: 'despesas', compras: 'compras', entradas: 'compras', 'compra-nova': 'compras', 'nfe-sefaz': 'compras', tributacao: 'tributacao', extrato: 'despesas', cartao: 'despesas', agenda: 'emitir', relatorios: 'relatorios', tomadores: 'tomadores', servicos: 'servicos', empresas: 'empresas', embarcadores: 'embarcadores', veiculos: 'frota', motoristas: 'frota', transportadores: 'frota', viagens: 'viagens', 'painel-notas': 'painel', ctes: 'fiscal', mdfes: 'fiscal', gnres: 'fiscal', faturas: 'faturas', 'pagamentos-frete': 'acertos', acertos: 'acertos' }[nome];
   return nome === 'config' || nome === 'inicio' || (modulo && estado.usuario.modulos.includes(modulo));
 }
 
 const rotas = {
-  inicio: telaInicio, painel: telaPainel, emitir: telaEmitir, orcamentos: telaOrcamentos, orcamento: telaOrcamento, notas: telaNotas, nota: telaNota,
+  inicio: telaInicio, painel: telaPainelTransporte, 'painel-notas': telaPainel, ctes: telaCtes, mdfes: telaMdfes, gnres: telaGnres, faturas: telaFaturas, 'pagamentos-frete': telaPagamentosFrete, acertos: telaAcertos, emitir: telaEmitir, orcamentos: telaOrcamentos, orcamento: telaOrcamento, notas: telaNotas, nota: telaNota,
   cobrancas: telaCobrancas, banco: telaBanco, despesas: telaDespesas, compras: telaCompras, entradas: telaCompras, 'compra-nova': telaCompraManual, 'nfe-sefaz': telaNfeSefaz, tributacao: telaTributacao, extrato: telaExtrato, cartao: telaCartao, agenda: telaAgenda, relatorios: telaRelatorios, tomadores: telaTomadores, servicos: telaServicos, empresas: telaEmpresas, embarcadores: telaEmbarcadores, transportadores: telaTransportadores, viagens: telaViagens, veiculos: telaVeiculos, motoristas: telaMotoristas, config: telaConfig,
 };
 
@@ -2084,7 +2084,7 @@ async function telaDocumentacao() {
   $('#man-imprimir').onclick = () => {
     const t = MANUAL.find((x) => x.id === est.topico);
     const box = $('#man-corpo'); const antes = box.innerHTML;
-    box.innerHTML = `<h1>Manual do Kontor Gestão Empresas — versão ${MANUAL_VERSAO}</h1>` + MANUAL.map((x) => `<section><h2>${esc(x.titulo)}</h2>${x.corpo}</section>`).join('');
+    box.innerHTML = `<h1>Manual do Kontor Gestão Transportadora — versão ${MANUAL_VERSAO}</h1>` + MANUAL.map((x) => `<section><h2>${esc(x.titulo)}</h2>${x.corpo}</section>`).join('');
     document.body.classList.add('imprimindo-manual');
     const voltar = () => { document.body.classList.remove('imprimindo-manual'); box.innerHTML = antes; window.removeEventListener('afterprint', voltar); };
     window.addEventListener('afterprint', voltar); setTimeout(() => window.print(), 50);
@@ -2513,7 +2513,7 @@ async function telaNaoContratado(m) {
   $('#mod-contratar').onclick = () => pedirModulo(s, m.nome);
 }
 function pedirModulo(s, nome) {
-  const msg = `Olá! Quero contratar o módulo ${nome} do Kontor Gestão Empresas.\nPlano atual: ${s?.planoNome ?? ''}\nCliente: ${s?.cliente || '(a informar)'}\nCódigo do computador: ${s?.codigoComputador ?? ''}`;
+  const msg = `Olá! Quero contratar o módulo ${nome} do Kontor Gestão Transportadora.\nPlano atual: ${s?.planoNome ?? ''}\nCliente: ${s?.cliente || '(a informar)'}\nCódigo do computador: ${s?.codigoComputador ?? ''}`;
   window.open(`https://wa.me/${s?.suporteWhatsapp ?? ''}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -2549,7 +2549,7 @@ async function telaLicenca() {
   if (ap) ap.onclick = () => { const b = $('#planos'); b.hidden = !b.hidden; };
   document.querySelectorAll('[data-plano]').forEach((b) => b.onclick = () => {
     const p = s.planos[b.dataset.plano];
-    const msg = `Olá! Quero ${s.plano === 'teste' ? 'contratar' : 'alterar para'} o plano ${p.nome} do Kontor Gestão Empresas.\nPlano atual: ${s.planoNome}\nCliente: ${s.cliente || '(a informar)'}\nCódigo do computador: ${s.codigoComputador}`;
+    const msg = `Olá! Quero ${s.plano === 'teste' ? 'contratar' : 'alterar para'} o plano ${p.nome} do Kontor Gestão Transportadora.\nPlano atual: ${s.planoNome}\nCliente: ${s.cliente || '(a informar)'}\nCódigo do computador: ${s.codigoComputador}`;
     window.open(`https://wa.me/${s.suporteWhatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
   });
   document.querySelectorAll('[data-modulo-pedir]').forEach((b) => b.onclick = () => pedirModulo(s, s.modulosPagos[b.dataset.moduloPedir].nome));
@@ -3517,7 +3517,20 @@ async function formViagem(viagemId, aoSalvar) {
         ENTREGUE: [['EM_TRANSITO', 'Desfazer entrega']],
         CANCELADA: [],
       }[st];
-      $('#acoes-status').innerHTML = botoes.map(([k, n]) => `<button type="button" data-st="${k}">${esc(n)}</button>`).join(' ');
+      const docs = !atual || st === 'CANCELADA' ? [] : [
+        ...(temModulo('fiscal') ? [['cte', 'CT-e'], ['mdfe', 'MDF-e']] : []),
+        ...(temModulo('acertos') && st !== 'AGUARDANDO_COLETA' ? [['acerto', 'Acerto']] : []),
+      ];
+      $('#acoes-status').innerHTML = botoes.map(([k, n]) => `<button type="button" data-st="${k}">${esc(n)}</button>`).join(' ')
+        + docs.map(([k, n]) => ` <button type="button" data-doc="${k}">${esc(n)}</button>`).join('');
+      dlg.querySelectorAll('[data-doc]').forEach((b) => (b.onclick = async () => {
+        erro();
+        try {
+          if (b.dataset.doc === 'acerto') { dlg.close(); return formAcerto(atual.id, aoSalvar); }
+          const d = await api('POST', `/api/viagens/${atual.id}/${b.dataset.doc}`);
+          dlg.close(); (b.dataset.doc === 'cte' ? formCte : formMdfe)(d.id, aoSalvar);
+        } catch (e) { erro(e); }
+      }));
       dlg.querySelectorAll('[data-st]').forEach((b) => (b.onclick = async () => {
         const k = b.dataset.st;
         if (k === 'CANCELADA' && !confirm('Cancelar esta viagem? Ela não poderá mais ser alterada, e as NF-e ficam livres para outra viagem.')) return;
@@ -3557,6 +3570,564 @@ async function formViagem(viagemId, aoSalvar) {
       } catch (e) { erro(e); }
     };
     pintarNfes(); pintarAvisos(); pintarStatus();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Transportadora: painel, CT-e, MDF-e, GNRE, faturas de frete, CIOT/vale-pedágio e acerto de viagem
+// ---------------------------------------------------------------------------
+
+const temModulo = (m) => estado.usuario.modulos.includes(m);
+const selo = (texto, cor) => `<span class="selo-estado" style="--c:${cor}">${esc(texto)}</span>`;
+const STATUS_DOC = {
+  RASCUNHO: ['Rascunho', 'var(--laranja)'], AUTORIZADO: ['Autorizado', 'var(--verde)'], CANCELADO: ['Cancelado', 'var(--tinta-2)'], ENCERRADO: ['Encerrado', '#60a5fa'],
+  ABERTA: ['Em aberto', 'var(--laranja)'], PAGA: ['Paga', 'var(--verde)'], CANCELADA: ['Cancelada', 'var(--tinta-2)'], A_PAGAR: ['A pagar', 'var(--laranja)'],
+  ABERTO: ['Aberto', 'var(--laranja)'], FECHADO: ['Fechado', 'var(--verde)'], NOVO: ['Sem acerto', 'var(--tinta-2)'],
+};
+const seloDoc = (st) => selo(STATUS_DOC[st]?.[0] ?? st, STATUS_DOC[st]?.[1] ?? 'inherit');
+const rotaTxt = (x, p1 = 'origem', p2 = 'destino') => `${esc(x[`${p1}_cidade`] ?? '')}/${esc(x[`${p1}_uf`] ?? '')} → ${esc(x[`${p2}_cidade`] ?? '')}/${esc(x[`${p2}_uf`] ?? '')}`;
+const pendenciasHtml = (lista, titulo = 'Falta para transmitir à SEFAZ') => (lista?.length
+  ? `<div class="aviso-campo"><strong>${esc(titulo)}</strong><ul style="margin:4px 0 0;padding-left:18px">${lista.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+const AVISO_SEFAZ = '<p class="dica" style="margin:8px 0 0">A transmissão à SEFAZ (homologação e produção, com o certificado A1) está em desenvolvimento. Por enquanto o documento é montado e conferido aqui.</p>';
+
+/** Lista simples com título, filtros em abas e clique na linha. */
+async function telaLista({ titulo, subtitulo, botao, aoBotao, abas, chave, buscar, colunas, aoClicar, vazio, rodape }) {
+  let filtro = abas ? sessionStorage.getItem(chave) ?? abas[0][0] : '';
+  conteudo.innerHTML = `
+    <div class="topo"><div><h1>${esc(titulo)}</h1><p class="sutil">${esc(subtitulo)}</p></div>${botao ? `<div><button class="primario" id="lista-botao">${esc(botao)}</button></div>` : ''}</div>
+    ${abas ? `<nav class="abas" id="lista-abas">${abas.map(([k, n]) => `<a href="#" data-f="${k}" class="${k === filtro ? 'ativo' : ''}">${esc(n)}</a>`).join('')}</nav>` : ''}
+    <div id="lista-rodape" class="sutil" style="margin-bottom:10px"></div>
+    <div id="lista-corpo"></div>`;
+  let itens = [];
+  const carregar = async () => {
+    itens = await buscar(filtro);
+    $('#lista-corpo').innerHTML = itens.length
+      ? `<div class="rolagem"><table class="tabela"><thead><tr>${colunas.map((c) => `<th class="${c.num ? 'num' : ''}">${esc(c.t)}</th>`).join('')}</tr></thead><tbody>
+        ${itens.map((x, i) => `<tr class="${aoClicar ? 'clicavel' : ''}" data-i="${i}">${colunas.map((c) => `<td class="${c.num ? 'num' : ''}">${c.v(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+      : `<div class="vazio">${esc(vazio)}</div>`;
+    $('#lista-rodape').innerHTML = rodape ? rodape(itens) : '';
+    if (aoClicar) conteudo.querySelectorAll('#lista-corpo tr[data-i]').forEach((tr) => (tr.onclick = (ev) => { if (!ev.target.closest('button,a')) aoClicar(itens[tr.dataset.i], carregar); }));
+    conteudo.querySelectorAll('#lista-corpo [data-acao]').forEach((b) => (b.onclick = () => b._acao?.()));
+  };
+  if (abas) conteudo.querySelectorAll('#lista-abas a').forEach((a) => (a.onclick = (ev) => {
+    ev.preventDefault(); filtro = a.dataset.f; sessionStorage.setItem(chave, filtro);
+    conteudo.querySelectorAll('#lista-abas a').forEach((b) => b.classList.toggle('ativo', b === a));
+    carregar().catch((e) => aviso(mensagemErro(e)));
+  }));
+  if (botao) $('#lista-botao').onclick = () => aoBotao(carregar);
+  await carregar();
+  return carregar;
+}
+
+// ---------------------------------------------------------------- Painel
+
+async function telaPainelTransporte() {
+  if (!empresa()) { conteudo.innerHTML = '<div class="vazio">Cadastre uma empresa para começar.</div>'; return; }
+  const p = await api('GET', `/api/empresas/${estado.empresaId}/painel-transporte`);
+  const st = (k) => p.porStatus[k] ?? 0;
+  const max = Math.max(1, ...p.dias.map((d) => d.frete));
+  const diaSem = (d) => ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][new Date(`${d}T12:00:00`).getDay()];
+  const totalStatus = Math.max(1, st('AGUARDANDO_COLETA') + st('EM_TRANSITO') + st('ENTREGUE'));
+  const barraStatus = (k) => `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>${esc(STATUS_VIAGEM[k].nome)}</span><strong>${st(k)}</strong></div>
+    <div style="height:8px;border-radius:6px;background:var(--superficie-2);overflow:hidden"><div style="height:100%;width:${(st(k) / totalStatus) * 100}%;background:${STATUS_VIAGEM[k].cor}"></div></div></div>`;
+  const atalhos = [['viagens', 'Nova viagem', 'viagens'], ['ctes', 'CT-e', 'fiscal'], ['mdfes', 'MDF-e', 'fiscal'], ['faturas', 'Faturar frete', 'faturas'], ['acertos', 'Acerto de viagem', 'acertos'], ['cobrancas', 'Cobranças', 'cobrancas']]
+    .filter(([, , m]) => temModulo(m));
+  conteudo.innerHTML = `
+    <div class="topo"><div><h1>Painel</h1><p class="sutil">${esc(empresa().nome_fantasia || empresa().razao_social)} · ${nomeMes(hoje().slice(0, 7))}</p></div>
+      <div>${temModulo('viagens') ? '<button class="primario" id="painel-nova">Nova viagem</button>' : ''}</div></div>
+    <div class="resumo">
+      <div class="cartao"><div class="sutil">Viagens em trânsito</div><div class="valor">${st('EM_TRANSITO')}</div><div class="dica">${st('AGUARDANDO_COLETA')} aguardando coleta</div></div>
+      <div class="cartao"><div class="sutil">Frete entregue no mês</div><div class="valor">${compacto(p.mes.frete)}</div><div class="dica">${p.mes.n} viagem(ns) entregue(s)</div></div>
+      <div class="cartao"><div class="sutil">Margem prevista no mês</div><div class="valor" style="color:${p.mes.margem < 0 ? COR.vermelho : COR.verde}">${compacto(p.mes.margem)}</div><div class="dica">${p.mes.frete ? Math.round((p.mes.margem / p.mes.frete) * 100) : 0}% do frete</div></div>
+      <div class="cartao"><div class="sutil">Faturas a receber</div><div class="valor">${compacto(p.receber.total)}</div><div class="dica" style="color:${p.receber.vencido ? COR.vermelho : 'inherit'}">${p.receber.vencido ? `${brl(p.receber.vencido)} vencido` : `${p.receber.n} fatura(s) em aberto`}</div></div>
+      <div class="cartao"><div class="sutil">Entregue sem fatura</div><div class="valor">${compacto(p.semFatura.s)}</div><div class="dica">${p.semFatura.n} viagem(ns) para faturar</div></div>
+    </div>
+    <div class="duas-colunas">
+      <div class="cartao"><h2 style="margin-top:0">Frete entregue nos últimos 7 dias</h2>
+        <div style="display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:10px">
+          ${p.dias.map((d) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
+            <span class="dica" style="font-size:11px">${d.frete ? compacto(d.frete) : ''}</span>
+            <div title="${brl(d.frete)}" style="width:100%;max-width:42px;height:${Math.max(2, (d.frete / max) * 120)}px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--laranja),var(--laranja-forte))"></div>
+            <span class="dica">${diaSem(d.dia)}</span></div>`).join('')}
+        </div></div>
+      <div class="cartao"><h2 style="margin-top:0">Viagens por situação</h2>
+        ${barraStatus('AGUARDANDO_COLETA')}${barraStatus('EM_TRANSITO')}${barraStatus('ENTREGUE')}
+        <p class="dica">${st('CANCELADA')} cancelada(s)</p></div>
+    </div>
+    <div class="duas-colunas">
+      <div class="cartao"><h2 style="margin-top:0">Últimas viagens</h2>
+        ${p.ultimas.length ? `<table class="tabela"><tbody>${p.ultimas.map((v) => `<tr class="clicavel" data-v="${v.id}"><td><strong>${v.numero}</strong></td><td>${esc(v.embarcador_nome)}<br><span class="dica">${rotaTxt(v)}</span></td>
+          <td>${esc(v.placa ?? '—')}</td><td class="num">${brl(v.valor_frete)}</td><td>${seloViagem(v.status)}</td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nenhuma viagem ainda.</p>'}</div>
+      <div class="cartao"><h2 style="margin-top:0">Documentos e vencimentos</h2>
+        <div class="resumo" style="grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 10px">
+          <div><span class="sutil">Viagens sem CT-e</span><div style="font-size:1.2rem;font-weight:700">${p.docs.viagens_sem_cte}</div></div>
+          <div><span class="sutil">CT-e em rascunho</span><div style="font-size:1.2rem;font-weight:700">${p.docs.cte_rascunho}</div></div>
+          <div><span class="sutil">MDF-e abertos</span><div style="font-size:1.2rem;font-weight:700">${p.docs.mdfe_abertos}</div></div>
+          <div><span class="sutil">GNRE a pagar</span><div style="font-size:1.2rem;font-weight:700">${p.docs.gnre_a_pagar}</div></div>
+        </div>
+        ${p.vencimentos.length ? `<table class="tabela"><tbody>${p.vencimentos.map((x) => `<tr><td>${esc(x.descricao)}</td><td class="num">${vencimentoHtml(x.data)}</td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nada vencendo nos próximos 30 dias.</p>'}</div>
+    </div>
+    <div class="cartao" style="margin-top:16px"><h2 style="margin-top:0">Ações rápidas</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${atalhos.map(([r, n]) => `<a class="botao" href="#/${r}" ${r === 'viagens' ? 'data-nova' : ''}>${esc(n)}</a>`).join('')}</div></div>`;
+  $('#painel-nova') && ($('#painel-nova').onclick = () => formViagem(null, () => telaPainelTransporte()));
+  conteudo.querySelectorAll('[data-nova]').forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); formViagem(null, () => telaPainelTransporte()); }));
+  conteudo.querySelectorAll('tr[data-v]').forEach((tr) => (tr.onclick = () => formViagem(Number(tr.dataset.v), () => telaPainelTransporte())));
+}
+
+// ---------------------------------------------------------------- CT-e
+
+async function telaCtes() {
+  return telaLista({
+    titulo: 'CT-e', subtitulo: 'Conhecimentos de transporte gerados a partir das viagens.', botao: 'Gerar CT-e de uma viagem',
+    aoBotao: (recarregar) => escolherViagem('Gerar CT-e', async (v) => { const c = await api('POST', `/api/viagens/${v.id}/cte`); formCte(c.id, recarregar); }),
+    abas: [['', 'Todos'], ['RASCUNHO', 'Rascunhos'], ['AUTORIZADO', 'Autorizados'], ['CANCELADO', 'Cancelados']], chave: 'ctes-filtro',
+    buscar: (f) => api('GET', `/api/empresas/${estado.empresaId}/ctes${f ? `?status=${f}` : ''}`),
+    colunas: [
+      { t: 'Nº', v: (c) => (c.numero ? `<strong>${c.numero}</strong>` : '<span class="dica">—</span>') },
+      { t: 'Viagem', v: (c) => `${c.viagem_numero}` },
+      { t: 'Tomador', v: (c) => esc(c.tomador_nome) },
+      { t: 'Rota', v: (c) => rotaTxt(c) },
+      { t: 'CFOP', v: (c) => esc(c.cfop) },
+      { t: 'Prestação', num: true, v: (c) => brl(c.valor_prestacao) },
+      { t: 'ICMS', num: true, v: (c) => (c.cst_icms === 'SN' ? '<span class="dica">Simples</span>' : brl(c.valor_icms)) },
+      { t: 'Fatura', v: (c) => (c.fatura_numero ? `nº ${c.fatura_numero}` : '<span class="dica">—</span>') },
+      { t: 'Situação', v: (c) => seloDoc(c.status) },
+    ],
+    aoClicar: (c, recarregar) => formCte(c.id, recarregar), vazio: 'Nenhum CT-e. Gere a partir de uma viagem.',
+    rodape: (l) => (l.length ? `${l.length} CT-e · prestação ${brl(l.filter((c) => c.status !== 'CANCELADO').reduce((s, c) => s + c.valor_prestacao, 0))}` : ''),
+  });
+}
+
+/** Escolhe uma viagem (não cancelada) para gerar documento. */
+async function escolherViagem(titulo, aoEscolher, filtro = (v) => v.status !== 'CANCELADA') {
+  const viagens = (await api('GET', `/api/empresas/${estado.empresaId}/viagens`)).filter(filtro);
+  abrirDialogo(`<form id="form-escolha"><h2>${esc(titulo)}</h2>
+    ${viagens.length ? `<label class="largo">Viagem <select name="v">${viagens.map((v) => `<option value="${v.id}">Nº ${v.numero} · ${esc(v.embarcador_nome)} · ${esc(v.origem_cidade)} → ${esc(v.destino_cidade)} · ${esc(STATUS_VIAGEM[v.status].nome)}</option>`).join('')}</select></label>`
+      : '<p class="dica">Nenhuma viagem disponível. Cadastre em Operação → Viagens.</p>'}
+    <p class="erro" id="erro-escolha"></p>
+    <div class="acoes">${viagens.length ? '<button class="primario" type="submit">Continuar</button>' : ''}<button type="button" data-fechar>Fechar</button></div></form>`, (dlg) => {
+    $('#form-escolha').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const v = viagens.find((x) => String(x.id) === ev.target.v.value);
+      try { dlg.close(); await aoEscolher(v); } catch (e) { aviso(mensagemErro(e)); }
+    };
+  });
+}
+
+async function formCte(id, aoSalvar) {
+  const c = await api('GET', `/api/ctes/${id}`);
+  const editavel = c.status === 'RASCUNHO';
+  const CFOPS = ['351', '352', '353', '354', '355', '356', '357', '359', '360'].map((x) => `${c.origem_uf === c.destino_uf ? '5' : '6'}${x}`);
+  const NOMES_CFOP = { 351: 'para execução de serviço da mesma natureza', 352: 'a estabelecimento industrial', 353: 'a estabelecimento comercial', 354: 'a prestador de serviço de comunicação', 355: 'a geradora/distribuidora de energia', 356: 'a produtor rural', 357: 'a não contribuinte', 359: 'a contribuinte/produtor rural com substituição', 360: 'a contribuinte substituto' };
+  const CST = { '00': '00 · tributação normal', 20: '20 · base reduzida', 40: '40 · isenta', 41: '41 · não tributada', 51: '51 · diferimento', 60: '60 · cobrado por ST', 90: '90 · outras', SN: 'Simples Nacional' };
+  abrirDialogo(`<form id="form-cte" class="dialogo-largo">
+    <h2>CT-e ${c.numero ? `nº ${c.numero}` : '(rascunho)'} · viagem nº ${c.viagem_numero} ${seloDoc(c.status)}</h2>
+    ${pendenciasHtml(c.pendencias)}
+    <fieldset ${editavel ? '' : 'disabled'} style="border:0;padding:0;margin:0">
+    <div class="duas-colunas" style="margin-top:10px">
+      <div><h3>Tomador do serviço</h3><p><strong>${esc(c.tomador_nome)}</strong><br><span class="dica">${esc(fmtDoc(c.tomador_documento))}</span></p>
+        <label>Papel do tomador <select name="tomador_papel">${opcoesDe([['REMETENTE', 'Remetente (CIF)'], ['DESTINATARIO', 'Destinatário (FOB)'], ['OUTROS', 'Outros']], c.tomador_papel)}</select></label></div>
+      <div><h3>Partes</h3><p><span class="sutil">Remetente</span><br>${esc(c.remetente_nome ?? '—')} <span class="dica">${esc(fmtDoc(c.remetente_documento ?? ''))}</span></p>
+        <p><span class="sutil">Destinatário</span><br>${esc(c.destinatario_nome ?? '—')} <span class="dica">${esc(fmtDoc(c.destinatario_documento ?? ''))}</span></p></div>
+    </div>
+    <h3>Prestação</h3>
+    <p>${rotaTxt(c)} <span class="dica">IBGE ${esc(c.origem_ibge ?? '?')} → ${esc(c.destino_ibge ?? '?')}</span> · carga ${brl(c.valor_carga)} · ${pesoFmt(c.peso_kg)}</p>
+    <div class="grade">
+      <label class="largo">CFOP <select name="cfop">${opcoesDe(CFOPS.map((x) => [x, `${x} · ${NOMES_CFOP[x.slice(1)]}`]), c.cfop)}</select></label>
+      <label>Valor da prestação <input name="valor_prestacao" data-num inputmode="decimal" value="${c.valor_prestacao}"></label>
+      <label>CST do ICMS <select name="cst_icms">${opcoesDe(Object.entries(CST), c.cst_icms)}</select></label>
+      <label>Alíquota ICMS (%) <input name="aliquota_icms" data-num inputmode="decimal" value="${c.aliquota_icms}"></label>
+      <label>Valor do ICMS <output id="cte-icms" style="display:block;padding:9px 0;font-weight:700">${brl(c.valor_icms)}</output></label>
+      <label class="largo">Produto predominante <input name="produto" maxlength="120" value="${esc(c.produto ?? '')}"></label>
+      <label class="largo">Observação <input name="observacao" maxlength="1000" value="${esc(c.observacao ?? '')}"></label>
+    </div>
+    </fieldset>
+    <h3>NF-e transportadas</h3>
+    ${c.nfes.length ? `<table class="tabela"><tbody>${c.nfes.map((n) => `<tr><td>${esc(n.numero ?? '')}${n.completa ? '' : ' <span class="selo-conferir">só chave</span>'}</td><td class="dica" style="font-size:11px">${esc(n.chave)}</td><td class="num">${n.valor != null ? brl(n.valor) : '—'}</td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nenhuma NF-e na viagem.</p>'}
+    ${editavel ? AVISO_SEFAZ : ''}
+    <p class="erro" id="erro-cte"></p>
+    <div class="acoes">${editavel ? '<button class="primario" type="submit">Salvar</button><button type="button" id="cte-transmitir">Transmitir à SEFAZ</button><button type="button" id="cte-mdfe">Gerar MDF-e</button><button type="button" id="cte-cancelar">Excluir rascunho</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
+  </form>`, (dlg) => {
+    const f = $('#form-cte'), erro = (e) => ($('#erro-cte').textContent = e ? mensagemErro(e) : '');
+    const icms = () => { const isento = ['40', '41', '51', '60', 'SN'].includes(f.cst_icms.value); f.aliquota_icms.disabled = isento; $('#cte-icms').textContent = brl(isento ? 0 : ((numero(f.valor_prestacao.value) ?? 0) * (numero(f.aliquota_icms.value) ?? 0)) / 100); };
+    ['valor_prestacao', 'aliquota_icms'].forEach((k) => f[k].addEventListener('input', icms)); f.cst_icms.addEventListener('change', icms); icms();
+    if (!editavel) return;
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); erro();
+      const d = lerForm(f);
+      try {
+        await api('PUT', `/api/ctes/${id}`, { cfop: d.cfop, tomador_papel: d.tomador_papel, valor_prestacao: d.valor_prestacao ?? 0, cst_icms: d.cst_icms, aliquota_icms: d.aliquota_icms ?? 0, produto: d.produto, observacao: d.observacao });
+        dlg.close(); aviso('CT-e salvo.'); aoSalvar?.();
+      } catch (e) { erro(e); }
+    };
+    $('#cte-transmitir').onclick = async () => { erro(); try { await api('POST', `/api/ctes/${id}/transmitir`); } catch (e) { erro(e); } };
+    $('#cte-mdfe').onclick = async () => { erro(); try { const m = await api('POST', `/api/viagens/${c.viagem_id}/mdfe`); dlg.close(); location.hash = '#/mdfes'; setTimeout(() => formMdfe(m.id), 300); } catch (e) { erro(e); } };
+    $('#cte-cancelar').onclick = async () => {
+      if (!confirm('Excluir este rascunho de CT-e? A viagem continua e um novo rascunho pode ser gerado.')) return;
+      try { await api('POST', `/api/ctes/${id}/cancelar`); dlg.close(); aoSalvar?.(); } catch (e) { erro(e); }
+    };
+  });
+}
+
+// ---------------------------------------------------------------- MDF-e
+
+async function telaMdfes() {
+  return telaLista({
+    titulo: 'MDF-e', subtitulo: 'Manifestos de documentos fiscais: veículo, motorista, percurso e CT-e da carga.', botao: 'Gerar MDF-e de uma viagem',
+    aoBotao: (recarregar) => escolherViagem('Gerar MDF-e', async (v) => { const m = await api('POST', `/api/viagens/${v.id}/mdfe`); recarregar(); formMdfe(m.id, recarregar); }),
+    abas: [['', 'Todos'], ['RASCUNHO', 'Rascunhos'], ['AUTORIZADO', 'Abertos na SEFAZ'], ['ENCERRADO', 'Encerrados'], ['CANCELADO', 'Cancelados']], chave: 'mdfes-filtro',
+    buscar: (f) => api('GET', `/api/empresas/${estado.empresaId}/mdfes${f ? `?status=${f}` : ''}`),
+    colunas: [
+      { t: 'Nº', v: (m) => (m.numero ? `<strong>${m.numero}</strong>` : '<span class="dica">—</span>') },
+      { t: 'Percurso', v: (m) => `${esc(m.uf_ini)}${m.percurso ? ` → ${esc(m.percurso.replace(/,/g, ' → '))}` : ''} → ${esc(m.uf_fim)}` },
+      { t: 'Veículo', v: (m) => `${esc(m.placa ?? '—')}<br><span class="dica">${esc(m.motorista_nome ?? '')}</span>` },
+      { t: 'CT-e', num: true, v: (m) => m.qtd_ctes },
+      { t: 'Carga', num: true, v: (m) => `${brl(m.valor_carga)}<br><span class="dica">${pesoFmt(m.peso_kg)}</span>` },
+      { t: 'CIOT', v: (m) => esc(m.ciot ?? '—') },
+      { t: 'Situação', v: (m) => seloDoc(m.status) },
+    ],
+    aoClicar: (m, recarregar) => formMdfe(m.id, recarregar), vazio: 'Nenhum MDF-e. Gere a partir de uma viagem.',
+  });
+}
+
+async function formMdfe(id, aoSalvar) {
+  const emp = estado.empresaId;
+  const [m, veiculos, motoristas, ctes] = await Promise.all([
+    api('GET', `/api/mdfes/${id}`), api('GET', `/api/empresas/${emp}/veiculos`).catch(() => []), api('GET', `/api/empresas/${emp}/motoristas`).catch(() => []),
+    api('GET', `/api/empresas/${emp}/ctes`).catch(() => []),
+  ]);
+  const editavel = m.status === 'RASCUNHO';
+  const livres = ctes.filter((c) => c.status !== 'CANCELADO' && (!c.mdfe_id || c.mdfe_id === m.id));
+  const marcados = new Set(m.ctes.map((c) => c.id));
+  abrirDialogo(`<form id="form-mdfe" class="dialogo-largo">
+    <h2>MDF-e ${m.numero ? `nº ${m.numero}` : '(rascunho)'} ${seloDoc(m.status)}</h2>
+    ${pendenciasHtml(m.pendencias)}
+    <fieldset ${editavel ? '' : 'disabled'} style="border:0;padding:0;margin:0">
+    <h3>Veículo e condutor</h3>
+    <div class="grade">
+      <label>Veículo de tração <select name="veiculo_id"><option value="">—</option>${opcoesDe(veiculos.map((x) => [x.id, `${x.placa} · ${x.tipo} · ${VINCULOS[x.vinculo] ?? ''}`]), m.veiculo_id)}</select></label>
+      <label>Motorista <select name="motorista_id"><option value="">—</option>${opcoesDe(motoristas.map((x) => [x.id, x.nome]), m.motorista_id)}</select></label>
+      <label>CIOT <input name="ciot" maxlength="14" inputmode="numeric" value="${esc(m.ciot ?? '')}"><span class="dica">Obrigatório para agregado/autônomo</span></label>
+    </div>
+    <h3>Percurso</h3>
+    <div class="grade">
+      <label>UF inicial <select name="uf_ini">${opcoesDe(UFS.map((u) => [u, u]), m.uf_ini)}</select></label>
+      <label class="largo">UFs de passagem <input name="percurso" placeholder="ex.: PR, SP, MG" value="${esc((m.percurso ?? '').replace(/,/g, ', '))}"></label>
+      <label>UF final <select name="uf_fim">${opcoesDe(UFS.map((u) => [u, u]), m.uf_fim)}</select></label>
+      <label>Município de carregamento <input name="carregamento_cidade" value="${esc(m.carregamento_cidade ?? '')}"></label>
+      <label>IBGE <input name="carregamento_ibge" maxlength="7" value="${esc(m.carregamento_ibge ?? '')}"></label>
+      <label>Município de descarga <input name="descarga_cidade" value="${esc(m.descarga_cidade ?? '')}"></label>
+      <label>IBGE <input name="descarga_ibge" maxlength="7" value="${esc(m.descarga_ibge ?? '')}"></label>
+    </div>
+    <h3>CT-e da carga</h3>
+    ${livres.length ? `<table class="tabela"><tbody>${livres.map((c) => `<tr><td><input type="checkbox" data-cte="${c.id}" ${marcados.has(c.id) ? 'checked' : ''}></td>
+      <td>${c.numero ? `CT-e ${c.numero}` : 'Rascunho'} · viagem ${c.viagem_numero}</td><td>${esc(c.tomador_nome)}</td><td>${rotaTxt(c)}</td><td>${seloDoc(c.status)}</td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nenhum CT-e disponível.</p>'}
+    <label class="largo" style="margin-top:8px">Observação <input name="observacao" maxlength="1000" value="${esc(m.observacao ?? '')}"></label>
+    </fieldset>
+    ${editavel ? AVISO_SEFAZ : m.status === 'AUTORIZADO' ? '<p class="dica">Encerre o MDF-e ao concluir a entrega no último município de descarga.</p>' : ''}
+    <p class="erro" id="erro-mdfe"></p>
+    <div class="acoes">${editavel ? '<button class="primario" type="submit">Salvar</button><button type="button" id="mdfe-transmitir">Transmitir à SEFAZ</button><button type="button" id="mdfe-cancelar">Excluir rascunho</button>' : ''}
+      ${m.status === 'AUTORIZADO' ? '<button type="button" id="mdfe-encerrar" class="primario">Encerrar MDF-e</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
+  </form>`, (dlg) => {
+    const f = $('#form-mdfe'), erro = (e) => ($('#erro-mdfe').textContent = e ? mensagemErro(e) : '');
+    if (m.status === 'AUTORIZADO') $('#mdfe-encerrar').onclick = async () => {
+      const ibge = prompt('Código IBGE do município de encerramento:', m.descarga_ibge ?? '');
+      if (!ibge) return;
+      try { await api('POST', `/api/mdfes/${id}/encerrar`, { uf: m.uf_fim, ibge }); dlg.close(); aoSalvar?.(); } catch (e) { erro(e); }
+    };
+    if (!editavel) return;
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); erro();
+      const d = lerForm(f);
+      const cte_ids = [...dlg.querySelectorAll('[data-cte]:checked')].map((x) => Number(x.dataset.cte));
+      try {
+        await api('PUT', `/api/mdfes/${id}`, { veiculo_id: d.veiculo_id ? Number(d.veiculo_id) : null, motorista_id: d.motorista_id ? Number(d.motorista_id) : null, ciot: d.ciot,
+          uf_ini: d.uf_ini, uf_fim: d.uf_fim, percurso: d.percurso, carregamento_cidade: d.carregamento_cidade, carregamento_ibge: d.carregamento_ibge,
+          descarga_cidade: d.descarga_cidade, descarga_ibge: d.descarga_ibge, observacao: d.observacao, cte_ids });
+        dlg.close(); aviso('MDF-e salvo.'); aoSalvar?.();
+      } catch (e) { erro(e); }
+    };
+    $('#mdfe-transmitir').onclick = async () => { erro(); try { await api('POST', `/api/mdfes/${id}/transmitir`); } catch (e) { erro(e); } };
+    $('#mdfe-cancelar').onclick = async () => {
+      if (!confirm('Excluir este rascunho de MDF-e?')) return;
+      try { await api('POST', `/api/mdfes/${id}/cancelar`); dlg.close(); aoSalvar?.(); } catch (e) { erro(e); }
+    };
+  });
+}
+
+// ---------------------------------------------------------------- GNRE
+
+async function telaGnres() {
+  return telaLista({
+    titulo: 'GNRE', subtitulo: 'Guias de ICMS do frete devido a outro estado (receita 100013).', botao: 'Nova guia',
+    aoBotao: (recarregar) => formGnre(null, recarregar),
+    buscar: () => api('GET', `/api/empresas/${estado.empresaId}/gnres`),
+    colunas: [
+      { t: 'UF', v: (g) => `<strong>${esc(g.uf_favorecida)}</strong>` },
+      { t: 'Receita', v: (g) => esc(g.receita) },
+      { t: 'Referência', v: (g) => esc(g.referencia ?? (g.viagem_numero ? `Viagem ${g.viagem_numero}` : '—')) },
+      { t: 'Vencimento', v: (g) => (g.status === 'A_PAGAR' ? vencimentoHtml(g.vencimento) : fmtDataBr(g.vencimento)) },
+      { t: 'Valor', num: true, v: (g) => brl(g.valor) },
+      { t: 'Situação', v: (g) => seloDoc(g.status) + (g.pago_em ? `<br><span class="dica">paga em ${fmtDataBr(g.pago_em)}</span>` : '') },
+    ],
+    aoClicar: (g, recarregar) => formGnre(g, recarregar), vazio: 'Nenhuma guia GNRE.',
+    rodape: (l) => { const a = l.filter((g) => g.status === 'A_PAGAR'); return a.length ? `${a.length} a pagar · ${brl(a.reduce((s, g) => s + g.valor, 0))}` : ''; },
+  });
+}
+
+async function formGnre(g, aoSalvar) {
+  const ctes = await api('GET', `/api/empresas/${estado.empresaId}/ctes`).catch(() => []);
+  const editavel = !g || g.status === 'A_PAGAR';
+  abrirDialogo(`<form id="form-gnre"><h2>${g ? 'Guia GNRE' : 'Nova guia GNRE'} ${g ? seloDoc(g.status) : ''}</h2>
+    <fieldset ${editavel ? '' : 'disabled'} style="border:0;padding:0;margin:0"><div class="grade">
+      <label class="largo">CT-e <select name="cte_id"><option value="">Sem CT-e</option>${opcoesDe(ctes.filter((c) => c.status !== 'CANCELADO').map((c) => [c.id, `Viagem ${c.viagem_numero} · ${c.tomador_nome} · ${c.destino_uf} · ICMS ${brl(c.valor_icms)}`]), g?.cte_id)}</select></label>
+      <label>UF favorecida <select name="uf_favorecida">${opcoesDe(UFS.map((u) => [u, u]), g?.uf_favorecida)}</select></label>
+      <label>Código da receita <input name="receita" maxlength="6" value="${esc(g?.receita ?? '100013')}"></label>
+      <label>Valor <input name="valor" data-num inputmode="decimal" value="${g?.valor ?? ''}"></label>
+      <label>Vencimento <input name="vencimento" type="date" value="${esc(g?.vencimento ?? hoje())}"></label>
+      <label>Referência <input name="referencia" maxlength="60" value="${esc(g?.referencia ?? '')}"></label>
+      <label class="largo">Código de barras <input name="codigo_barras" maxlength="60" value="${esc(g?.codigo_barras ?? '')}"><span class="dica">A emissão da guia direto no portal GNRE entra numa próxima etapa.</span></label>
+    </div></fieldset>
+    <p class="erro" id="erro-gnre"></p>
+    <div class="acoes">${editavel ? '<button class="primario" type="submit">Salvar</button>' : ''}${g && editavel ? '<button type="button" id="gnre-pagar">Marcar como paga</button><button type="button" id="gnre-cancelar">Cancelar guia</button>' : ''}<button type="button" data-fechar>Fechar</button></div></form>`, (dlg) => {
+    const f = $('#form-gnre'), erro = (e) => ($('#erro-gnre').textContent = e ? mensagemErro(e) : '');
+    f.cte_id.onchange = () => { const c = ctes.find((x) => String(x.id) === f.cte_id.value); if (c) { f.uf_favorecida.value = c.origem_uf; if (!f.valor.value) f.valor.value = String(c.valor_icms).replace('.', ','); } };
+    if (!editavel) return;
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); erro(); const d = lerForm(f);
+      const corpo = { cte_id: d.cte_id ? Number(d.cte_id) : null, uf_favorecida: d.uf_favorecida, receita: d.receita ?? '100013', valor: d.valor ?? 0, vencimento: d.vencimento, referencia: d.referencia, codigo_barras: d.codigo_barras };
+      try { if (g) await api('PUT', `/api/gnres/${g.id}`, corpo); else await api('POST', `/api/empresas/${estado.empresaId}/gnres`, corpo); dlg.close(); aoSalvar(); } catch (e) { erro(e); }
+    };
+    if (g) {
+      $('#gnre-pagar').onclick = async () => { try { await api('POST', `/api/gnres/${g.id}/pagar`, {}); dlg.close(); aoSalvar(); } catch (e) { erro(e); } };
+      $('#gnre-cancelar').onclick = async () => { if (!confirm('Cancelar esta guia?')) return; try { await api('POST', `/api/gnres/${g.id}/cancelar`); dlg.close(); aoSalvar(); } catch (e) { erro(e); } };
+    }
+  });
+}
+
+// ---------------------------------------------------------------- Faturas de frete
+
+async function telaFaturas() {
+  return telaLista({
+    titulo: 'Faturas de frete', subtitulo: 'Um ou vários CT-e do mesmo embarcador numa fatura, com boleto ou Pix.', botao: 'Nova fatura',
+    aoBotao: (recarregar) => formNovaFatura(recarregar),
+    abas: [['ABERTA', 'Em aberto'], ['PAGA', 'Pagas'], ['CANCELADA', 'Canceladas'], ['', 'Todas']], chave: 'faturas-filtro',
+    buscar: (f) => api('GET', `/api/empresas/${estado.empresaId}/faturas-frete${f ? `?status=${f}` : ''}`),
+    colunas: [
+      { t: 'Nº', v: (x) => `<strong>${x.numero}</strong>` },
+      { t: 'Embarcador', v: (x) => esc(x.embarcador_nome) },
+      { t: 'CT-e', num: true, v: (x) => x.qtd_ctes },
+      { t: 'Emissão', v: (x) => fmtDataBr(x.emissao) },
+      { t: 'Vencimento', v: (x) => (x.status === 'ABERTA' ? vencimentoHtml(x.vencimento) : fmtDataBr(x.vencimento)) },
+      { t: 'Valor', num: true, v: (x) => brl(x.valor) },
+      { t: 'Cobrança', v: (x) => (x.cobranca_id ? `${x.cobranca_forma === 'PIX' ? 'Pix' : 'Boleto'} <span class="dica">${esc((x.cobranca_status ?? '').toLowerCase().replace(/_/g, ' '))}</span>` : '<span class="dica">sem cobrança</span>') },
+      { t: 'Situação', v: (x) => seloDoc(x.status) },
+    ],
+    aoClicar: (x, recarregar) => formFatura(x.id, recarregar), vazio: 'Nenhuma fatura nesta situação.',
+    rodape: (l) => (l.length ? `${l.length} fatura(s) · ${brl(l.reduce((s, x) => s + x.valor, 0))}` : ''),
+  });
+}
+
+async function formNovaFatura(aoSalvar) {
+  const livres = await api('GET', `/api/empresas/${estado.empresaId}/faturas-frete/ctes-livres`);
+  const porEmb = {};
+  for (const c of livres) (porEmb[c.embarcador_id] ??= { nome: c.embarcador_nome, prazo: c.prazo_pagamento_dias, ctes: [] }).ctes.push(c);
+  const ids = Object.keys(porEmb);
+  abrirDialogo(`<form id="form-fatura" class="dialogo-largo"><h2>Nova fatura de frete</h2>
+    ${ids.length ? `<div class="grade">
+      <label class="largo">Embarcador <select name="embarcador_id">${ids.map((k) => `<option value="${k}">${esc(porEmb[k].nome)} (${porEmb[k].ctes.length} CT-e)</option>`).join('')}</select></label>
+      <label>Vencimento <input name="vencimento" type="date"></label>
+      <label class="largo">Observação <input name="observacao" maxlength="500"></label></div>
+      <div id="fat-ctes" style="margin-top:10px"></div>
+      <label style="margin-top:8px;display:flex;gap:8px;align-items:center"><input type="checkbox" name="gerar_cobranca" checked> Gerar boleto/Pix agora (pela conta bancária da empresa)</label>
+      <p class="dica">O CT-e precisará estar autorizado na SEFAZ quando a emissão estiver liberada; por enquanto a fatura aceita rascunhos para os testes.</p>`
+      : '<p class="dica">Nenhum CT-e livre para faturar. Gere o CT-e da viagem em Documentos fiscais → CT-e.</p>'}
+    <p class="erro" id="erro-fatura"></p>
+    <div class="acoes">${ids.length ? '<button class="primario" type="submit">Criar fatura</button>' : ''}<button type="button" data-fechar>Fechar</button></div></form>`, (dlg) => {
+    if (!ids.length) return;
+    const f = $('#form-fatura');
+    const pintar = () => {
+      const g = porEmb[f.embarcador_id.value];
+      f.vencimento.value = new Date(Date.parse(`${hoje()}T12:00:00`) + (g.prazo ?? 15) * 864e5).toISOString().slice(0, 10);
+      $('#fat-ctes').innerHTML = `<table class="tabela"><thead><tr><th></th><th>CT-e / viagem</th><th>Rota</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>${g.ctes.map((c) => `<tr><td><input type="checkbox" data-c="${c.id}" data-v="${c.valor_prestacao}" checked></td>
+        <td>${c.numero ? `CT-e ${c.numero}` : 'Rascunho'} · viagem ${c.viagem_numero}</td><td>${rotaTxt(c)}</td><td>${seloDoc(c.status)}</td><td class="num">${brl(c.valor_prestacao)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="4"><strong>Total</strong></td><td class="num"><strong id="fat-total"></strong></td></tr></tfoot></table>`;
+      const total = () => ($('#fat-total').textContent = brl([...dlg.querySelectorAll('[data-c]:checked')].reduce((s, x) => s + Number(x.dataset.v), 0)));
+      dlg.querySelectorAll('[data-c]').forEach((x) => (x.onchange = total)); total();
+    };
+    f.embarcador_id.onchange = pintar; pintar();
+    f.onsubmit = async (ev) => {
+      ev.preventDefault();
+      try {
+        const r = await api('POST', `/api/empresas/${estado.empresaId}/faturas-frete`, { embarcador_id: Number(f.embarcador_id.value), cte_ids: [...dlg.querySelectorAll('[data-c]:checked')].map((x) => Number(x.dataset.c)),
+          vencimento: f.vencimento.value || null, observacao: f.observacao.value || null, gerar_cobranca: f.gerar_cobranca.checked });
+        dlg.close(); aviso(r.aviso ?? `Fatura nº ${r.numero} criada.`); aoSalvar();
+      } catch (e) { $('#erro-fatura').textContent = mensagemErro(e); }
+    };
+  });
+}
+
+async function formFatura(id, aoSalvar) {
+  const x = await api('GET', `/api/faturas-frete/${id}`);
+  const cobAtiva = x.cobranca_id && x.cobranca_status !== 'CANCELADO';
+  abrirDialogo(`<div class="dialogo-largo"><h2>Fatura nº ${x.numero} ${seloDoc(x.status)}</h2>
+    <p><strong>${esc(x.embarcador_nome)}</strong> <span class="dica">${esc(fmtDoc(x.embarcador_documento))}</span><br>
+      Emissão ${fmtDataBr(x.emissao)} · vencimento ${fmtDataBr(x.vencimento)} · <strong>${brl(x.valor)}</strong>${x.pago_em ? ` · paga em ${fmtDataBr(x.pago_em)}` : ''}</p>
+    <table class="tabela"><thead><tr><th>CT-e</th><th>Viagem</th><th>Rota</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>${x.ctes.map((c) => `<tr><td>${c.numero ?? 'Rascunho'}</td><td>${c.viagem_numero}</td><td>${rotaTxt(c)}</td><td>${seloDoc(c.status)}</td><td class="num">${brl(c.valor_prestacao)}</td></tr>`).join('')}</tbody></table>
+    ${cobAtiva ? `<p style="margin-top:10px">Cobrança: ${x.cobranca_forma === 'PIX' ? 'Pix' : 'Boleto'} · ${esc((x.cobranca_status ?? '').toLowerCase().replace(/_/g, ' '))}${x.linha_digitavel ? `<br><span class="dica">${esc(x.linha_digitavel)}</span>` : ''} · <a href="#/cobrancas" data-fechar>abrir em Cobranças</a></p>` : ''}
+    <p class="erro" id="erro-fat"></p>
+    <div class="acoes">${x.status === 'ABERTA' && !cobAtiva ? '<button class="primario" type="button" id="fat-cob">Gerar boleto/Pix</button>' : ''}
+      ${x.status === 'ABERTA' ? '<button type="button" id="fat-baixar">Dar baixa manual</button><button type="button" id="fat-cancelar">Cancelar fatura</button>' : ''}<button type="button" data-fechar>Fechar</button></div></div>`, (dlg) => {
+    const erro = (e) => ($('#erro-fat').textContent = mensagemErro(e));
+    const acao = (sel, url, conf) => { const b = $(sel); if (b) b.onclick = async () => { if (conf && !confirm(conf)) return; try { await api('POST', url, {}); dlg.close(); aoSalvar(); } catch (e) { erro(e); } }; };
+    acao('#fat-cob', `/api/faturas-frete/${id}/cobranca`);
+    acao('#fat-baixar', `/api/faturas-frete/${id}/baixar`, 'Dar baixa nesta fatura como paga hoje?');
+    acao('#fat-cancelar', `/api/faturas-frete/${id}/cancelar`, 'Cancelar esta fatura? Os CT-e ficam livres para outra fatura.');
+  });
+}
+
+// ---------------------------------------------------------------- CIOT e vale-pedágio
+
+const OPERADORAS = ['e-Frete', 'Pamcard', 'Repom', 'Target', 'NDD Cargo', 'Sem Parar', 'Veloe', 'ConectCar', 'Move Mais', 'Outra'];
+async function telaPagamentosFrete() {
+  return telaLista({
+    titulo: 'CIOT e vale-pedágio', subtitulo: 'Código de operação de transporte e vale-pedágio de cada viagem.', botao: 'Registrar',
+    aoBotao: (recarregar) => formPagamentoFrete(recarregar),
+    abas: [['', 'Todos'], ['CIOT', 'CIOT'], ['VALE_PEDAGIO', 'Vale-pedágio']], chave: 'pagfrete-filtro',
+    buscar: (f) => api('GET', `/api/empresas/${estado.empresaId}/pagamentos-frete${f ? `?tipo=${f}` : ''}`),
+    colunas: [
+      { t: 'Tipo', v: (p) => (p.tipo === 'CIOT' ? 'CIOT' : 'Vale-pedágio') },
+      { t: 'Número', v: (p) => `<strong>${esc(p.numero)}</strong>` },
+      { t: 'Operadora', v: (p) => esc(p.operadora ?? '—') },
+      { t: 'Viagem', v: (p) => `nº ${p.viagem_numero} <span class="dica">${esc(p.origem_cidade)} → ${esc(p.destino_cidade)}</span>` },
+      { t: 'Veículo', v: (p) => `${esc(p.placa ?? '—')} <span class="dica">${esc(VINCULOS[p.vinculo] ?? '')}</span>` },
+      { t: 'Data', v: (p) => fmtDataBr(p.data) },
+      { t: 'Valor', num: true, v: (p) => brl(p.valor) },
+      { t: '', v: (p) => `<button type="button" class="link" data-excluir="${p.id}">Excluir</button>` },
+    ],
+    vazio: 'Nada registrado.',
+  }).then((recarregar) => {
+    conteudo.addEventListener('click', async (ev) => {
+      const b = ev.target.closest('[data-excluir]');
+      if (!b || !confirm('Excluir este registro?')) return;
+      try { await api('DELETE', `/api/pagamentos-frete/${b.dataset.excluir}`); recarregar(); } catch (e) { aviso(mensagemErro(e)); }
+    });
+  });
+}
+
+async function formPagamentoFrete(aoSalvar) {
+  const viagens = (await api('GET', `/api/empresas/${estado.empresaId}/viagens`)).filter((v) => v.status !== 'CANCELADA');
+  abrirDialogo(`<form id="form-pf"><h2>Registrar CIOT ou vale-pedágio</h2><div class="grade">
+    <label>Tipo <select name="tipo"><option value="CIOT">CIOT</option><option value="VALE_PEDAGIO">Vale-pedágio</option></select></label>
+    <label>Operadora <select name="operadora"><option value=""></option>${opcoesDe(OPERADORAS.map((o) => [o, o]))}</select></label>
+    <label class="largo">Viagem <select name="viagem_id">${opcoesDe(viagens.map((v) => [v.id, `Nº ${v.numero} · ${v.embarcador_nome} · ${v.origem_cidade} → ${v.destino_cidade}${v.placa ? ` · ${v.placa}` : ''}`]))}</select></label>
+    <label>Número <input name="numero" required maxlength="40"><span class="dica">CIOT: 12 dígitos</span></label>
+    <label>Valor <input name="valor" data-num inputmode="decimal"></label>
+    <label>Data <input name="data" type="date" value="${hoje()}"></label>
+    <label class="largo">Observação <input name="observacao" maxlength="300"></label></div>
+    <p class="dica">A emissão do CIOT e do vale-pedágio pelas operadoras (via integração) entra numa próxima etapa; aqui ficam registrados para o MDF-e e o acerto.</p>
+    <p class="erro" id="erro-pf"></p><div class="acoes"><button class="primario" type="submit">Salvar</button><button type="button" data-fechar>Fechar</button></div></form>`, (dlg) => {
+    $('#form-pf').onsubmit = async (ev) => {
+      ev.preventDefault(); const d = lerForm(ev.target);
+      try { await api('POST', `/api/empresas/${estado.empresaId}/pagamentos-frete`, { viagem_id: Number(d.viagem_id), tipo: d.tipo, operadora: d.operadora, numero: d.numero ?? '', valor: d.valor ?? 0, data: d.data, observacao: d.observacao }); dlg.close(); aoSalvar(); }
+      catch (e) { $('#erro-pf').textContent = mensagemErro(e); }
+    };
+  });
+}
+
+// ---------------------------------------------------------------- Acerto de viagem
+
+async function telaAcertos() {
+  return telaLista({
+    titulo: 'Acerto de viagem', subtitulo: 'Adiantamento, despesas, comissão do motorista e resultado de cada viagem iniciada.',
+    buscar: () => api('GET', `/api/empresas/${estado.empresaId}/acertos`),
+    colunas: [
+      { t: 'Viagem', v: (a) => `<strong>${a.numero}</strong> ${seloViagem(a.status_viagem)}` },
+      { t: 'Rota', v: (a) => esc(a.rota) },
+      { t: 'Veículo / motorista', v: (a) => `${esc(a.placa ?? '—')} <span class="dica">${esc(VINCULOS[a.vinculo] ?? '')}</span><br><span class="dica">${esc(a.motorista_nome ?? '')}</span>` },
+      { t: 'Frete', num: true, v: (a) => brl(a.frete) },
+      { t: 'Despesas', num: true, v: (a) => brl(a.despesas + a.vale_pedagio) },
+      { t: 'Resultado', num: true, v: (a) => `<strong class="${a.resultado < 0 ? 'cor-vermelho' : 'cor-verde'}">${brl(a.resultado)}</strong>` },
+      { t: 'Saldo motorista', num: true, v: (a) => brl(a.saldo_motorista) },
+      { t: 'Acerto', v: (a) => seloDoc(a.status) },
+    ],
+    aoClicar: (a, recarregar) => formAcerto(a.viagem_id, recarregar), vazio: 'Nenhuma viagem em trânsito ou entregue.',
+    rodape: (l) => (l.length ? `${l.length} viagem(ns) · resultado ${brl(l.reduce((s, a) => s + a.resultado, 0))}` : ''),
+  });
+}
+
+const TIPOS_DESPESA = { COMBUSTIVEL: 'Combustível', PEDAGIO: 'Pedágio', ALIMENTACAO: 'Alimentação', HOSPEDAGEM: 'Hospedagem', MANUTENCAO: 'Manutenção', CARGA_DESCARGA: 'Carga/descarga', OUTROS: 'Outros' };
+async function formAcerto(viagemId, aoSalvar) {
+  const r = await api('GET', `/api/viagens/${viagemId}/acerto`);
+  const { viagem: v, acerto: a } = r;
+  const fechado = a.status === 'FECHADO';
+  let itens = r.itens.map((i) => ({ ...i, pago_pelo_motorista: !!i.pago_pelo_motorista }));
+  abrirDialogo(`<form id="form-acerto" class="dialogo-largo">
+    <h2>Acerto da viagem nº ${v.numero} ${seloDoc(a.status)}</h2>
+    <p>${esc(v.embarcador_nome)} · ${rotaTxt(v)} · ${esc(v.placa ?? '')} ${esc(v.motorista_nome ?? '')} · frete <strong>${brl(v.valor_frete)}</strong>${v.vinculo !== 'PROPRIO' && v.valor_terceiro ? ` · terceiro ${brl(v.valor_terceiro)}` : ''}</p>
+    <fieldset ${fechado ? 'disabled' : ''} style="border:0;padding:0;margin:0">
+    <div class="grade">
+      <label>Adiantamento ao motorista <input name="adiantamento" data-num inputmode="decimal" value="${a.adiantamento || ''}"></label>
+      <label>Comissão (% do frete) <input name="comissao_pct" data-num inputmode="decimal" value="${a.comissao_pct || ''}"></label>
+      <label>Km inicial <input name="km_inicial" data-num inputmode="numeric" value="${a.km_inicial ?? ''}"></label>
+      <label>Km final <input name="km_final" data-num inputmode="numeric" value="${a.km_final ?? ''}"></label>
+    </div>
+    <h3>Despesas</h3>
+    <div id="ac-itens"></div>
+    ${fechado ? '' : '<button type="button" id="ac-add">+ Despesa</button>'}
+    <label class="largo" style="margin-top:8px">Observação <input name="observacao" maxlength="500" value="${esc(a.observacao ?? '')}"></label>
+    </fieldset>
+    <div class="resumo" id="ac-resumo" style="margin-top:12px"></div>
+    <p class="erro" id="erro-ac"></p>
+    <div class="acoes">${fechado ? '<button type="button" id="ac-reabrir">Reabrir acerto</button>' : `<button class="primario" type="submit">Salvar</button>${v.status === 'ENTREGUE' ? '<button type="button" id="ac-fechar">Salvar e fechar acerto</button>' : ''}`}<button type="button" data-fechar>Fechar</button></div>
+  </form>`, (dlg) => {
+    const f = $('#form-acerto'), erro = (e) => ($('#erro-ac').textContent = e ? mensagemErro(e) : '');
+    const resumo = (s) => {
+      $('#ac-resumo').innerHTML = `
+        <div class="cartao"><div class="sutil">Despesas + vale-pedágio</div><div class="valor">${brl(s.despesas + s.vale_pedagio)}</div><div class="dica">${s.km != null ? `${s.km} km${s.custo_km != null ? ` · ${brl(s.custo_km)}/km` : ''}` : 'informe o km'}${s.media_km_l ? ` · ${s.media_km_l} km/l` : ''}</div></div>
+        <div class="cartao"><div class="sutil">Comissão</div><div class="valor">${brl(s.comissao)}</div></div>
+        <div class="cartao"><div class="sutil">Resultado da viagem</div><div class="valor" style="color:${s.resultado < 0 ? COR.vermelho : COR.verde}">${brl(s.resultado)}</div><div class="dica">frete − terceiro − despesas − comissão</div></div>
+        <div class="cartao"><div class="sutil">${s.saldo_motorista >= 0 ? 'A pagar ao motorista' : 'Motorista devolve'}</div><div class="valor">${brl(Math.abs(s.saldo_motorista))}</div><div class="dica">comissão + despesas dele − adiantamento</div></div>`;
+    };
+    const calcular = () => {
+      const d = lerForm(f);
+      const desp = itens.reduce((s, i) => s + (Number(i.valor) || 0), 0), dele = itens.filter((i) => i.pago_pelo_motorista).reduce((s, i) => s + (Number(i.valor) || 0), 0);
+      const com = Math.round(v.valor_frete * (d.comissao_pct ?? 0)) / 100, ter = v.vinculo === 'PROPRIO' ? 0 : v.valor_terceiro ?? 0;
+      const km = d.km_inicial != null && d.km_final != null ? d.km_final - d.km_inicial : null, litros = itens.filter((i) => i.tipo === 'COMBUSTIVEL').reduce((s, i) => s + (Number(i.litros) || 0), 0);
+      resumo({ despesas: desp, vale_pedagio: r.resumo.vale_pedagio, comissao: com, resultado: v.valor_frete - ter - desp - r.resumo.vale_pedagio - com, saldo_motorista: com + dele - (d.adiantamento ?? 0),
+        km, custo_km: km ? (desp + r.resumo.vale_pedagio) / km : null, media_km_l: km && litros ? Math.round((km / litros) * 100) / 100 : null });
+    };
+    const pintar = () => {
+      $('#ac-itens').innerHTML = itens.length ? `<table class="tabela"><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Litros</th><th>Valor</th><th>Pago pelo motorista</th><th></th></tr></thead><tbody>${itens.map((i, k) => `<tr data-k="${k}">
+        <td><input type="date" data-c="data" value="${esc(i.data ?? '')}"></td>
+        <td><select data-c="tipo">${opcoesDe(Object.entries(TIPOS_DESPESA), i.tipo)}</select></td>
+        <td><input data-c="descricao" maxlength="120" value="${esc(i.descricao ?? '')}"></td>
+        <td><input data-c="litros" inputmode="decimal" style="width:80px" value="${i.litros ?? ''}"></td>
+        <td><input data-c="valor" inputmode="decimal" style="width:110px" value="${i.valor != null ? String(i.valor).replace('.', ',') : ''}"></td>
+        <td style="text-align:center"><input type="checkbox" data-c="pago_pelo_motorista" ${i.pago_pelo_motorista ? 'checked' : ''}></td>
+        <td><button type="button" class="link" data-tirar>Tirar</button></td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nenhuma despesa lançada.</p>';
+      dlg.querySelectorAll('#ac-itens tr[data-k]').forEach((tr) => {
+        const i = itens[tr.dataset.k];
+        tr.querySelectorAll('[data-c]').forEach((el) => (el.oninput = el.onchange = () => {
+          const c = el.dataset.c;
+          i[c] = el.type === 'checkbox' ? el.checked : c === 'valor' || c === 'litros' ? numero(el.value) : el.value || null;
+          calcular();
+        }));
+        tr.querySelector('[data-tirar]').onclick = () => { itens.splice(Number(tr.dataset.k), 1); pintar(); calcular(); };
+      });
+    };
+    pintar(); resumo(r.resumo);
+    f.addEventListener('input', (ev) => { if (!ev.target.closest('#ac-itens')) calcular(); });
+    if (fechado) { $('#ac-reabrir').onclick = async () => { try { await api('POST', `/api/viagens/${viagemId}/acerto/reabrir`); dlg.close(); aoSalvar(); formAcerto(viagemId, aoSalvar); } catch (e) { erro(e); } }; return; }
+    $('#ac-add').onclick = () => { itens.push({ data: hoje(), tipo: 'COMBUSTIVEL', descricao: null, valor: null, litros: null, pago_pelo_motorista: true }); pintar(); };
+    const salvar = async () => {
+      const d = lerForm(f);
+      await api('PUT', `/api/viagens/${viagemId}/acerto`, { adiantamento: d.adiantamento ?? 0, comissao_pct: d.comissao_pct ?? 0, km_inicial: d.km_inicial, km_final: d.km_final, observacao: d.observacao,
+        itens: itens.map((i) => ({ data: i.data, tipo: i.tipo, descricao: i.descricao, valor: Number(i.valor) || 0, litros: i.litros, pago_pelo_motorista: !!i.pago_pelo_motorista })) });
+    };
+    f.onsubmit = async (ev) => { ev.preventDefault(); erro(); try { await salvar(); dlg.close(); aviso('Acerto salvo.'); aoSalvar(); } catch (e) { erro(e); } };
+    const bf = $('#ac-fechar');
+    if (bf) bf.onclick = async () => { erro(); try { await salvar(); await api('POST', `/api/viagens/${viagemId}/acerto/fechar`); dlg.close(); aviso('Acerto fechado.'); aoSalvar(); } catch (e) { erro(e); } };
   });
 }
 
@@ -3723,7 +4294,7 @@ function formEmpresa(e) {
           <option value="0">Nenhum</option><option value="1">Ato cooperado</option><option value="2">Estimativa</option><option value="3">Microempresa municipal</option>
           <option value="4">Notário ou registrador</option><option value="5">Profissional autônomo</option><option value="6">Sociedade de profissionais</option></select></label>
         <label>% aproximado de tributos (Simples) <input name="p_tot_trib_sn" data-num value="${e.p_tot_trib_sn ?? ''}"><span class="dica">Lei 12.741 — opcional</span></label>
-        <label>Ambiente <select name="ambiente" data-num><option value="2">Produção restrita (testes)</option><option value="1">Produção</option></select></label>
+        <label>Ambiente <select name="ambiente" data-num><option value="2">Homologação (testes)</option><option value="1">Produção</option></select></label>
         <label>Série da DPS <input name="serie" maxlength="5" value="${esc(e.serie)}"></label>
         <label class="largo">Como esta empresa emite as notas?
           <select name="modo_emissao"><option value="CERTIFICADO">Pelo sistema, com certificado digital A1</option><option value="PORTAL">Pelo portal do Emissor Nacional (CNPJ e senha), sem certificado</option></select></label>
@@ -4449,6 +5020,12 @@ const ICONES = {
 ICONES.embarcadores ??= ICONES.tomadores;
 ICONES.motoristas ??= ICONES['o-users'];
 ICONES.transportadores ??= ICONES['o-users'];
+ICONES.ctes ??= ICONES.notas;
+ICONES.mdfes ??= ICONES.notas;
+ICONES.gnres ??= ICONES.cobrancas;
+ICONES.faturas ??= ICONES.cobrancas;
+ICONES['pagamentos-frete'] ??= ICONES.cobrancas;
+ICONES.acertos ??= ICONES.despesas;
 ICONES.viagens ??= 'M3 7h11v8H3zM14 10h4l3 3v2h-7M6.5 17.5a1.5 1.5 0 1 0 0 .01M17.5 17.5a1.5 1.5 0 1 0 0 .01M3 4h6';
 ICONES.veiculos ??= 'M2 6h12v9H2zM14 9h4l4 3v3h-8M7 17.5a1.5 1.5 0 1 0 0 .01M18 17.5a1.5 1.5 0 1 0 0 .01';
 const icone = (k, cls = 'ico') => (ICONES[k] ? `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONES[k]}"/></svg>` : '');
@@ -4652,25 +5229,26 @@ async function telaInicio() {
 }
 
 const INICIO = {
-  produto: 'Kontor Gestão Empresas',
-  subtitulo: 'Aqui você encontra tudo o que precisa para emitir, cobrar e acompanhar o caixa da sua empresa.',
+  produto: 'Kontor Gestão Transportadora',
+  subtitulo: 'Viagens, CT-e, MDF-e, faturas de frete e o resultado de cada carga num lugar só.',
   acessos: [
-    { href: '#/emitir', icone: 'emitir', titulo: 'Emitir nota', sub: 'NFS-e em poucos cliques', modulo: 'emitir' },
-    { href: '#/notas', icone: 'notas', titulo: 'Notas emitidas', sub: 'Consulte e envie', modulo: 'notas' },
-    { href: '#/cobrancas', icone: 'cobrancas', titulo: 'Cobranças', sub: 'Boletos e Pix', modulo: 'cobrancas' },
-    { href: '#/painel', icone: 'painel', titulo: 'Painel do mês', sub: 'Faturado e recebido', modulo: 'painel' },
-    { href: '#/tomadores', icone: 'tomadores', titulo: 'Clientes', sub: 'Cadastro e cobrança', modulo: 'tomadores' },
-    { href: '#/despesas', icone: 'despesas', titulo: 'Despesas e balanço', sub: 'Receitas × despesas', modulo: 'despesas' },
+    { href: '#/viagens', icone: 'viagens', titulo: 'Viagens', sub: 'Cargas, rotas e NF-e', modulo: 'viagens' },
+    { href: '#/ctes', icone: 'ctes', titulo: 'CT-e e MDF-e', sub: 'Documentos do transporte', modulo: 'fiscal' },
+    { href: '#/faturas', icone: 'faturas', titulo: 'Faturas de frete', sub: 'Boleto e Pix', modulo: 'faturas' },
+    { href: '#/painel', icone: 'painel', titulo: 'Painel', sub: 'Frete, margem e situação', modulo: 'painel' },
+    { href: '#/acertos', icone: 'acertos', titulo: 'Acerto de viagem', sub: 'Despesas e motorista', modulo: 'acertos' },
+    { href: '#/veiculos', icone: 'veiculos', titulo: 'Frota', sub: 'Veículos e vencimentos', modulo: 'frota' },
   ],
   dicas: [
-    'Na Emissão automática, as notas e boletos do mês ficam prontos na data de cada cliente: é só conferir e confirmar.',
-    'Cadastre os serviços padrão de cada cliente: na emissão, o serviço e o valor já vêm preenchidos.',
+    'Importe o XML das NF-e na viagem: origem, destino com IBGE e o embarcador vêm preenchidos.',
+    'Abra a viagem e use o botão CT-e: o rascunho já vem com tomador, CFOP e ICMS sugeridos.',
+    'Uma fatura de frete pode juntar vários CT-e do mesmo embarcador e gerar um único boleto ou Pix.',
+    'Mantenha CRLV, seguro e CNH com vencimento no cadastro: o painel avisa 30 dias antes.',
     'Clientes que pagam por Pix ficam na carteira Pix: cole o código copia e cola e o demonstrativo sai com o QR Code.',
     'Em Configurações > Modelos de e-mail, ajuste o texto de cada e-mail que vai para os clientes.',
     'O extrato em PDF pode ser importado e ligado aos boletos: o que foi pago já aparece como recebido.',
     'Lance as despesas fixas do mês: o balanço mostra o lucro de verdade, e não só a receita.',
-    'Pressione F2 no campo do cliente para buscar por nome, CNPJ ou e-mail.',
-    'O sininho no alto da tela mostra as cobranças vencidas e as notas com erro.',
+    'O sininho no alto da tela mostra as cobranças vencidas.',
     'Em Configurações > Aparência você escolhe as cores do sistema.',
     'Faça backup com frequência em Configurações > Backup.',
   ],

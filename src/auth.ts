@@ -11,7 +11,7 @@ export type Tipo = 'adm' | 'normal';
 export const MODULOS = {
   painel: 'Painel do mês', emitir: 'Emitir nota', notas: 'Notas emitidas', cobrancas: 'Cobranças',
   banco: 'Dados bancários', despesas: 'Despesas e balanço', tomadores: 'Clientes', servicos: 'Serviços', empresas: 'Empresas', relatorios: 'Relatórios', compras: 'Compras', tributacao: 'Tributação',
-  embarcadores: 'Embarcadores', frota: 'Frota e motoristas', viagens: 'Viagens',
+  embarcadores: 'Embarcadores', frota: 'Frota e motoristas', viagens: 'Viagens', fiscal: 'CT-e, MDF-e e GNRE', faturas: 'Faturas de frete', acertos: 'Acerto de viagem, CIOT e vale-pedágio',
   excluir: 'Excluir registros',
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -73,6 +73,12 @@ const REGRAS: Regra[] = [
   { r: /^\/api\/empresas\/\d+\/orcamentos(\/\d+(\/(duplicar|situacao|conversao|pdf|email))?)?$/, mod: ['emitir'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/tomadores$/, mod: ['tomadores', 'emitir', 'cobrancas'] },
   { r: /^\/api\/empresas\/\d+\/tomadores(\/planilha\/(analisar|importar))?$|^\/api\/tomadores\/\d+$/, mod: ['tomadores'] },
+  { m: 'GET', r: /^\/api\/empresas\/\d+\/painel-transporte$/, mod: ['painel'] },
+  { m: 'GET', r: /^\/api\/empresas\/\d+\/ctes$/, mod: ['fiscal', 'faturas'] },
+  { r: /^\/api\/empresas\/\d+\/(ctes|mdfes|gnres)$|^\/api\/(ctes|mdfes|gnres)\/\d+(\/(transmitir|cancelar|encerrar|pagar))?$|^\/api\/viagens\/\d+\/(cte|mdfe)$/, mod: ['fiscal'] },
+  { r: /^\/api\/empresas\/\d+\/faturas-frete(\/ctes-livres)?$|^\/api\/faturas-frete\/\d+(\/(cobranca|baixar|cancelar))?$/, mod: ['faturas'] },
+  { r: /^\/api\/empresas\/\d+\/(pagamentos-frete|acertos)$|^\/api\/pagamentos-frete\/\d+$|^\/api\/viagens\/\d+\/acerto(\/(fechar|reabrir))?$/, mod: ['acertos'] },
+  { m: 'GET', r: /^\/api\/empresas\/\d+\/viagens$/, mod: ['viagens', 'fiscal', 'acertos'] },
   { r: /^\/api\/empresas\/\d+\/viagens(\/ler-nfe)?$|^\/api\/viagens\/\d+(\/(status|nfes(\/\d+)?))?$/, mod: ['viagens'] },
   // a tela de viagens lista embarcadores, veículos e motoristas para escolher
   { m: 'GET', r: /^\/api\/empresas\/\d+\/embarcadores$/, mod: ['viagens', 'embarcadores'] },

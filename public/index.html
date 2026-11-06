@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kontor Gestão Empresas</title>
+  <title>Kontor Gestão Transportadora</title>
   <script>try { document.documentElement.dataset.tema = localStorage.getItem('tema') || 'preto-laranja'; } catch {}</script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%23fb923d%27/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/styles.css">
@@ -11,7 +11,7 @@
 <body>
   <div id="setup" class="login" hidden>
     <form id="form-setup" class="login-caixa">
-      <img class="logo" src="/logo.svg" alt="Kontor Gestão Empresas">
+      <img class="logo" src="/logo.svg" alt="Kontor Gestão Transportadora">
       <p class="chamada">Emissor de NFS-e. Vamos criar o primeiro acesso; seus dados ficam guardados somente neste computador.</p>
       <label>Nome do escritório <input name="escritorio" required autocomplete="organization"></label>
       <label>Seu nome <input name="nome" required autocomplete="name"></label>
@@ -26,7 +26,7 @@
 
   <div id="login" class="login" hidden>
     <form id="form-login" class="login-caixa">
-      <img class="logo" src="/logo.svg" alt="Kontor Gestão Empresas">
+      <img class="logo" src="/logo.svg" alt="Kontor Gestão Transportadora">
       <p class="chamada">Emissor de NFS-e pelo Sistema Nacional.</p>
       <label>Usuário <input name="usuario" required autocomplete="username" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase"></label>
       <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
@@ -40,7 +40,7 @@
   <div id="app" class="app" hidden>
     <aside class="lateral">
       <div class="fixo-lateral">
-      <div class="marca"><img src="/logo.svg" alt="Kontor Gestão Empresas"></div>
+      <div class="marca"><img src="/logo.svg" alt="Kontor Gestão Transportadora"></div>
       <label class="seletor-empresa">
         <span>Empresa</span>
         <select id="empresa-atual"></select>
@@ -49,15 +49,19 @@
       </div>
       <nav id="menu">
         <a href="#/inicio">Início</a>
-        <a href="#/painel" data-modulo="painel">Painel do mês</a>
+        <a href="#/painel" data-modulo="painel">Painel</a>
         <details class="grupo" data-grupo="operacao" open><summary>Operação</summary>
           <a href="#/viagens" data-modulo="viagens">Viagens</a>
+          <a href="#/acertos" data-modulo="acertos">Acerto de viagem</a>
+          <a href="#/pagamentos-frete" data-modulo="acertos">CIOT e vale-pedágio</a>
+        </details>
+        <details class="grupo" data-grupo="fiscal" open><summary>Documentos fiscais</summary>
+          <a href="#/ctes" data-modulo="fiscal">CT-e</a>
+          <a href="#/mdfes" data-modulo="fiscal">MDF-e</a>
+          <a href="#/gnres" data-modulo="fiscal">GNRE</a>
         </details>
         <details class="grupo" data-grupo="faturamento"><summary>Faturamento</summary>
-          <a href="#/orcamentos" data-modulo="emitir">Orçamentos</a>
-          <a href="#/emitir" data-modulo="emitir">Emitir nota</a>
-          <a href="#/agenda" data-modulo="emitir">Emissão automática</a>
-          <a href="#/notas" data-modulo="notas">Notas emitidas</a>
+          <a href="#/faturas" data-modulo="faturas">Faturas de frete</a>
           <a href="#/cobrancas" data-modulo="cobrancas">Cobranças</a>
         </details>
         <details class="grupo" data-grupo="suprimentos"><summary>Compras</summary>
@@ -74,9 +78,6 @@
           <a href="#/transportadores" data-modulo="frota">Transportadores terceiros</a>
           <a href="#/veiculos" data-modulo="frota">Veículos</a>
           <a href="#/motoristas" data-modulo="frota">Motoristas</a>
-          <a href="#/tomadores" data-modulo="tomadores">Clientes</a>
-          <a href="#/servicos" data-modulo="servicos">Serviços</a>
-          <a href="#/tributacao" data-modulo="tributacao">Tributação</a>
           <a href="#/empresas" data-modulo="empresas">Empresas</a>
         </details>
         <a href="#/relatorios" data-modulo="relatorios">Relatórios</a>

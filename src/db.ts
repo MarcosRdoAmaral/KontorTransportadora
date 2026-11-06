@@ -923,6 +923,141 @@ const migracoes: string[] = [
     UNIQUE (viagem_id, chave)
   );
   CREATE INDEX ix_viagem_nfes_chave ON viagem_nfes(chave);`,
+  // Documentos fiscais do transporte (CT-e, MDF-e, GNRE), fatura de frete, CIOT/vale-pedágio e acerto de viagem.
+  // CT-e e MDF-e nascem como rascunho a partir da viagem; número e chave são definidos na transmissão à SEFAZ.
+  `CREATE TABLE ctes (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    viagem_id INTEGER NOT NULL REFERENCES viagens(id),
+    serie INTEGER NOT NULL DEFAULT 1,
+    numero INTEGER,
+    chave TEXT,
+    protocolo TEXT,
+    cfop TEXT NOT NULL,
+    tomador_papel TEXT NOT NULL DEFAULT 'REMETENTE' CHECK (tomador_papel IN ('REMETENTE','DESTINATARIO','OUTROS')),
+    embarcador_id INTEGER NOT NULL REFERENCES embarcadores(id),
+    remetente_documento TEXT, remetente_nome TEXT,
+    destinatario_documento TEXT, destinatario_nome TEXT,
+    origem_cidade TEXT, origem_uf TEXT, origem_ibge TEXT,
+    destino_cidade TEXT, destino_uf TEXT, destino_ibge TEXT,
+    produto TEXT,
+    valor_carga REAL NOT NULL DEFAULT 0,
+    peso_kg REAL NOT NULL DEFAULT 0,
+    valor_prestacao REAL NOT NULL DEFAULT 0,
+    cst_icms TEXT NOT NULL DEFAULT '00',
+    aliquota_icms REAL NOT NULL DEFAULT 0,
+    observacao TEXT,
+    status TEXT NOT NULL DEFAULT 'RASCUNHO' CHECK (status IN ('RASCUNHO','AUTORIZADO','CANCELADO')),
+    autorizado_em TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX ix_ctes_empresa ON ctes(empresa_id, status);
+  CREATE INDEX ix_ctes_viagem ON ctes(viagem_id);
+
+  CREATE TABLE mdfes (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    serie INTEGER NOT NULL DEFAULT 1,
+    numero INTEGER,
+    chave TEXT,
+    protocolo TEXT,
+    veiculo_id INTEGER REFERENCES veiculos(id),
+    motorista_id INTEGER REFERENCES motoristas(id),
+    uf_ini TEXT NOT NULL,
+    uf_fim TEXT NOT NULL,
+    percurso TEXT,
+    carregamento_cidade TEXT, carregamento_ibge TEXT,
+    descarga_cidade TEXT, descarga_ibge TEXT,
+    ciot TEXT,
+    observacao TEXT,
+    status TEXT NOT NULL DEFAULT 'RASCUNHO' CHECK (status IN ('RASCUNHO','AUTORIZADO','ENCERRADO','CANCELADO')),
+    autorizado_em TEXT,
+    encerrado_em TEXT,
+    encerramento_uf TEXT, encerramento_ibge TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX ix_mdfes_empresa ON mdfes(empresa_id, status);
+  CREATE TABLE mdfe_ctes (
+    mdfe_id INTEGER NOT NULL REFERENCES mdfes(id) ON DELETE CASCADE,
+    cte_id INTEGER NOT NULL REFERENCES ctes(id),
+    PRIMARY KEY (mdfe_id, cte_id)
+  );
+
+  CREATE TABLE gnres (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    cte_id INTEGER REFERENCES ctes(id),
+    uf_favorecida TEXT NOT NULL,
+    receita TEXT NOT NULL DEFAULT '100013',
+    referencia TEXT,
+    valor REAL NOT NULL,
+    vencimento TEXT NOT NULL,
+    codigo_barras TEXT,
+    status TEXT NOT NULL DEFAULT 'A_PAGAR' CHECK (status IN ('A_PAGAR','PAGA','CANCELADA')),
+    pago_em TEXT,
+    observacao TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX ix_gnres_empresa ON gnres(empresa_id, status);
+
+  CREATE TABLE faturas_frete (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    numero INTEGER NOT NULL,
+    embarcador_id INTEGER NOT NULL REFERENCES embarcadores(id),
+    emissao TEXT NOT NULL,
+    vencimento TEXT NOT NULL,
+    valor REAL NOT NULL,
+    observacao TEXT,
+    status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN ('ABERTA','PAGA','CANCELADA')),
+    pago_em TEXT,
+    cobranca_id INTEGER REFERENCES cobrancas(id),
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (empresa_id, numero)
+  );
+  CREATE TABLE fatura_ctes (
+    fatura_id INTEGER NOT NULL REFERENCES faturas_frete(id) ON DELETE CASCADE,
+    cte_id INTEGER NOT NULL REFERENCES ctes(id),
+    PRIMARY KEY (fatura_id, cte_id)
+  );
+
+  CREATE TABLE pagamentos_frete (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    viagem_id INTEGER NOT NULL REFERENCES viagens(id),
+    tipo TEXT NOT NULL CHECK (tipo IN ('CIOT','VALE_PEDAGIO')),
+    operadora TEXT,
+    numero TEXT NOT NULL,
+    valor REAL NOT NULL DEFAULT 0,
+    data TEXT NOT NULL,
+    observacao TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX ix_pagamentos_frete_viagem ON pagamentos_frete(viagem_id);
+
+  CREATE TABLE acertos (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+    viagem_id INTEGER NOT NULL UNIQUE REFERENCES viagens(id),
+    adiantamento REAL NOT NULL DEFAULT 0,
+    comissao_pct REAL NOT NULL DEFAULT 0,
+    km_inicial INTEGER,
+    km_final INTEGER,
+    observacao TEXT,
+    status TEXT NOT NULL DEFAULT 'ABERTO' CHECK (status IN ('ABERTO','FECHADO')),
+    fechado_em TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE acerto_itens (
+    id INTEGER PRIMARY KEY,
+    acerto_id INTEGER NOT NULL REFERENCES acertos(id) ON DELETE CASCADE,
+    data TEXT,
+    tipo TEXT NOT NULL CHECK (tipo IN ('COMBUSTIVEL','PEDAGIO','ALIMENTACAO','HOSPEDAGEM','MANUTENCAO','CARGA_DESCARGA','OUTROS')),
+    descricao TEXT,
+    valor REAL NOT NULL,
+    litros REAL,
+    pago_pelo_motorista INTEGER NOT NULL DEFAULT 1
+  );`,
 ];
 
 export function migrar(): void {

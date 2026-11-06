@@ -18,7 +18,7 @@
   --vermelho-fundo: #2d1514;
   --cinza-fundo: #1f1f1f;
   --brilho-1: #361d0d; --brilho-2: #1d1108;
-  --lateral: #0f0f0f; --lateral-borda: #1f1f1f;
+  --lateral: #0c1830; --lateral-borda: #18294a; /* Transportadora: lateral azul-escuro com destaque laranja */
   --borda-leve: #222; --borda-campo: #262626; --borda-botao: #333; --borda-botao-hover: #555; --borda-tracejada: #3a3a3a;
   --placeholder: #5c5c5c; --menu: #d6d6d6; --sombra: rgba(0, 0, 0, .55); --cortina: rgba(0, 0, 0, .7);
   --foco: rgba(251, 146, 61, .22); --laranja-hover: #ffa459; --sobre-acento: #1a1006;
