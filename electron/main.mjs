@@ -118,11 +118,11 @@ function criarJanela() {
   // PDFs (DANFSe) abrem em janela própria; links externos vão para o navegador padrão.
   janela.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('blob:') || url.startsWith(urlLocal)) return { action: 'allow', overrideBrowserWindowOptions: { width: 900, height: 1000, autoHideMenuBar: true } };
-    if (/^https?:/.test(url)) shell.openExternal(url);
+    if (/^(https?|mailto):/.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   janela.webContents.on('will-navigate', (e, url) => {
-    if (!url.startsWith(urlLocal)) { e.preventDefault(); if (/^https?:/.test(url)) shell.openExternal(url); }
+    if (!url.startsWith(urlLocal)) { e.preventDefault(); if (/^(https?|mailto):/.test(url)) shell.openExternal(url); }
   });
 }
 

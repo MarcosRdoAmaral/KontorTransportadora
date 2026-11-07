@@ -5291,6 +5291,7 @@ const ICONES = {
   banco: 'M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18',
   config: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 13.5l2 1-2 3.5-2.2-.7a7 7 0 0 1-1.8 1L14.5 21h-5L9 18.3a7 7 0 0 1-1.8-1L5 18l-2-3.5 2-1a7 7 0 0 1 0-3l-2-1L5 6l2.2.7A7 7 0 0 1 9 5.7L9.5 3h5l.5 2.7a7 7 0 0 1 1.8 1L19 6l2 3.5-2 1a7 7 0 0 1 0 3z',
   documentacao: 'M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zM4 21V5M8 7h8',
+  envelope: 'M3 6h18v12H3zM3 7l9 6 9-6',
   sair: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11',
   sino: 'M6 9a6 6 0 0 1 12 0c0 6 2.5 8 2.5 8h-17S6 15 6 9M10.3 20.5a1.9 1.9 0 0 0 3.4 0',
   lampada: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z',
@@ -5497,6 +5498,16 @@ function iniciarAbas() {
   if (ativa && ativa.hash !== location.hash) { abas.pendente = ativa.id; location.hash = ativa.hash; } else abasNavegou();
 }
 
+/** E-mail do suporte: abre o programa de e-mail do computador com o sistema, a versão e o usuário já preenchidos. */
+const SUPORTE_EMAIL = 'contato@kontorgestao.com.br';
+async function emailSuporte(assunto = 'Suporte') {
+  let versao = '';
+  try { versao = (await import('/manual.js')).MANUAL_VERSAO ?? ''; } catch {}
+  const sistema = document.title || 'Kontor';
+  const corpo = `Olá, equipe Kontor!\n\nDescreva aqui a sua dúvida ou o problema (se puder, anexe um print da tela):\n\n\n---\nSistema: ${sistema}${versao ? ` ${versao}` : ''}\nUsuário: ${estado.usuario?.nome ?? ''} (${estado.usuario?.login ?? ''})\nTela: ${location.hash || '#/'}`;
+  location.href = `mailto:${SUPORTE_EMAIL}?subject=${encodeURIComponent(`${assunto} — ${sistema}`)}&body=${encodeURIComponent(corpo)}`;
+}
+
 /** Barra do topo: sininho com os lembretes do usuário e o menu do usuário. */
 function iniciarTopo() {
   if ($('#barra-topo')) return;
@@ -5511,6 +5522,7 @@ function iniciarTopo() {
         <p class="topo-menu-nome">${esc(nome)}<br><span class="dica">${esc(estado.usuario?.login ?? '')}</span></p>
         <button type="button" id="topo-trocar-avatar">${icone('usuario')}Trocar avatar</button>
         <a href="#/config/conta">${icone('usuario')}Minha conta</a><a href="#/config/aparencia">${icone('sol')}Aparência</a>
+        <a href="mailto:${SUPORTE_EMAIL}" id="topo-suporte">${icone('envelope')}E-mail ao suporte</a>
         <button type="button" id="topo-sair">${icone('sair')}Sair</button>
       </div></div>
   </header>`);
@@ -5524,6 +5536,7 @@ function iniciarTopo() {
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { alternar($('#topo-sino'), $('#topo-painel'), false); alternar($('#topo-usuario'), $('#topo-menu'), false); } });
   $('#topo-menu').querySelectorAll('a').forEach((a) => (a.onclick = () => alternar($('#topo-usuario'), $('#topo-menu'), false)));
   $('#topo-sair').onclick = () => $('#sair').click();
+  $('#topo-suporte').onclick = (ev) => { ev.preventDefault(); alternar($('#topo-usuario'), $('#topo-menu'), false); emailSuporte(); };
   $('#topo-trocar-avatar').onclick = () => { alternar($('#topo-usuario'), $('#topo-menu'), false); escolherAvatar(); };
   pintarAvatarTopo();
   window.addEventListener('hashchange', () => { alternar($('#topo-sino'), $('#topo-painel'), false); alternar($('#topo-usuario'), $('#topo-menu'), false); atualizarSino(); });
