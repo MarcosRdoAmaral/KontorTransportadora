@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { COR } from '../pdf/timbrado.js';
 import { barrasItf } from './ailos.js';
+import { desenharBoleto, ALTURA_FICHA, type DadosBoleto } from './boleto-pdf.js';
 
 /** Demonstrativo de cobrança (A4): cabeçalho do escritório, cliente, serviços, total e a forma de pagamento (Pix ou boleto). */
 export interface DadosDemonstrativo {
@@ -14,6 +15,8 @@ export interface DadosDemonstrativo {
   total: number;
   pix?: string | null;             // Pix copia e cola
   boleto?: { linhaDigitavel: string; codigoBarras: string } | null;
+  /** Dados completos do boleto: a ficha de compensação vem na parte de baixo da própria página (e não só o resumo). */
+  boletoCompleto?: DadosBoleto | null;
   rodape?: string | null;
 }
 
@@ -104,8 +107,8 @@ export async function gerarDemonstrativoPdf(d: DadosDemonstrativo): Promise<Buff
       y += h + 6 * MM;
     }
 
-    // Boleto
-    if (d.boleto) {
+    // Boleto: resumo (quando o boleto vem do banco e só temos a linha digitável)
+    if (d.boleto && !d.boletoCompleto) {
       const h = 34 * MM;
       pdf.save().roundedRect(X, y, W, h, 4).dash(3, { space: 2 }).lineWidth(0.8).stroke('#b9c2cc').restore();
       pdf.fillColor(AZUL).font('Helvetica-Bold').fontSize(9).text('PAGAMENTO VIA BOLETO BANCÁRIO', X + 5 * MM, y + 4 * MM);
@@ -119,12 +122,19 @@ export async function gerarDemonstrativoPdf(d: DadosDemonstrativo): Promise<Buff
       y += h + 6 * MM;
     }
 
-    pdf.fillColor(CINZA).font('Helvetica-Oblique').fontSize(8).text('Obrigado pela preferência.', X, y, { width: W, align: 'center' });
+    if (!d.boletoCompleto) pdf.fillColor(CINZA).font('Helvetica-Oblique').fontSize(8).text('Obrigado pela preferência.', X, y, { width: W, align: 'center' });
 
     // rodapé
     const yr = 285 * MM;
     pdf.moveTo(X, yr - 3 * MM).lineTo(X + W, yr - 3 * MM).lineWidth(0.6).stroke(LINHA);
     pdf.fillColor(CINZA).font('Helvetica').fontSize(7).text([d.emitente.nome.toUpperCase(), d.rodape].filter(Boolean).join('  •  '), X, yr, { width: W, align: 'center', lineBreak: false });
+
+    // Boleto completo (ficha de compensação) na parte de baixo; se não couber, o boleto inteiro vai na página seguinte
+    if (d.boletoCompleto) {
+      y -= 2 * MM;
+      if (y + ALTURA_FICHA(true) <= yr - 3 * MM) desenharBoleto(pdf, d.boletoCompleto, { y0: y, recibo: false, compacto: true });
+      else { pdf.addPage({ size: 'A4', margin: 0 }); desenharBoleto(pdf, d.boletoCompleto); }
+    }
     pdf.end();
   });
 }

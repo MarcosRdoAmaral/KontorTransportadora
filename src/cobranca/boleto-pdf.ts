@@ -28,7 +28,20 @@ export function gerarBoletoPdf(b: DadosBoleto): Promise<Buffer> {
     const pdf = new PDFDocument({ size: 'A4', margin: 0, info: { Title: `Boleto ${b.numeroDocumento}` } });
     const partes: Buffer[] = [];
     pdf.on('data', (c) => partes.push(c)); pdf.on('end', () => resolve(Buffer.concat(partes))); pdf.on('error', reject);
+    desenharBoleto(pdf, b);
+    pdf.end();
+  });
+}
 
+/** Altura (em pontos) da ficha de compensação com o código de barras, sem o recibo do pagador. */
+export const ALTURA_FICHA = (compacto = false) => 10 * MM + 4 * 9 * MM + (compacto ? 28 : 38) * MM + 16 * MM + 4 + 12 + 13 * MM;
+
+/**
+ * Desenha o boleto na página atual do PDF: recibo do pagador + ficha de compensação,
+ * ou só a ficha (`recibo: false`), que cabe na parte de baixo de uma página de demonstrativo.
+ */
+export function desenharBoleto(pdf: PDFKit.PDFDocument, b: DadosBoleto, o: { y0?: number; recibo?: boolean; compacto?: boolean } = {}): void {
+  {
     const X = 12 * MM, W = 186 * MM;
     const campo = (rot: string, val: string, x: number, y: number, w: number, h = 9 * MM, alinhar: 'left' | 'right' = 'left', negrito = false) => {
       pdf.rect(x, y, w, h).lineWidth(0.5).stroke('#000');
@@ -46,7 +59,8 @@ export function gerarBoletoPdf(b: DadosBoleto): Promise<Buffer> {
     };
 
     // -------- Recibo do pagador --------
-    let y = 14 * MM;
+    let y = o.y0 ?? 14 * MM;
+    if (o.recibo !== false) {
     pdf.font('Helvetica').fontSize(6).fillColor('#444').text('Linha digitável para uso no internet banking', X, y - 8, { lineBreak: false });
     pdf.fillColor('#000').font('Helvetica-Bold').fontSize(10).text(b.linhaDigitavel, X, y + 1, { lineBreak: false });
     y += 14;
@@ -62,6 +76,7 @@ export function gerarBoletoPdf(b: DadosBoleto): Promise<Buffer> {
     y += 18 * MM;
     pdf.dash(3, { space: 3 }).moveTo(X, y).lineTo(X + W, y).lineWidth(0.5).stroke('#000').undash();
     y += 10;
+    }
 
     // -------- Ficha de compensação --------
     cabecalho(y, '', true); y += 10 * MM;
@@ -72,7 +87,7 @@ export function gerarBoletoPdf(b: DadosBoleto): Promise<Buffer> {
     campo('Aceite', 'N', X + w(84), y, w(14)); campo('Data do processamento', dataBr(b.emissao), X + w(98), y, w(38)); campo('Nosso número', b.nossoNumero, X + w(136), y, w(50), w(9), 'right'); y += w(9);
     campo('Uso do banco', '', X, y, w(30)); campo('Carteira', b.carteira, X + w(30), y, w(20)); campo('Espécie', 'R$', X + w(50), y, w(20)); campo('Quantidade', '', X + w(70), y, w(28)); campo('Valor', '', X + w(98), y, w(38));
     campo('(=) Valor do documento', brl(b.valor), X + w(136), y, w(50), w(9), 'right', true); y += w(9);
-    const hInstr = w(38);
+    const hInstr = w(o.compacto ? 28 : 38);
     pdf.rect(X, y, w(136), hInstr).stroke('#000');
     pdf.fillColor('#444').fontSize(5.5).font('Helvetica').text('Instruções (texto de responsabilidade do beneficiário)', X + 2, y + 2);
     pdf.fillColor('#000').fontSize(8.5).text(b.instrucoes.join('\n'), X + 3, y + 10, { width: w(130) });
@@ -93,6 +108,5 @@ export function gerarBoletoPdf(b: DadosBoleto): Promise<Buffer> {
     const modulo = (103 * MM) / barras.reduce((a, n) => a + n, 0);
     let x = X; let preto = true;
     for (const n of barras) { if (preto) pdf.rect(x, y, n * modulo, 13 * MM).fill('#000'); x += n * modulo; preto = !preto; }
-    pdf.end();
-  });
+  }
 }
