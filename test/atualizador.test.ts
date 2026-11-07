@@ -20,6 +20,8 @@ test('busca de atualização na release do GitHub', async () => {
   const n = await buscarNovaVersao('x/y', '1.0.5', resp(200, release('v1.0.6', ['Kontor-Gestao-Instalador-1.0.6.exe', 'Kontor-Gestao-Instalador-1.0.6.exe.sha256'])));
   assert.equal(n.situacao, 'nova');
   assert.equal(n.versao, '1.0.6');
+  const t = await buscarNovaVersao('x/y', '1.0.5', resp(200, release('v1.0.6', ['Kontor-Transportadora-Instalador-1.0.6.exe', 'Kontor-Transportadora-Instalador-1.0.6.exe.sha256'])));
+  assert.equal(t.situacao, 'nova');
   assert.ok(n.sha);
   await assert.rejects(buscarNovaVersao('x/y', '1.0.5', resp(500)), /500/);
 });
@@ -38,6 +40,6 @@ test('plano B quando a API do GitHub recusa (limite de consultas)', async () => 
     : { status: 200, ok: true, url: 'https://github.com/o/r/releases/tag/v9.9.9', json: async () => ({}) };
   const r: any = await buscarNovaVersao('o/r', '1.0.0', buscar as any);
   assert.equal(r.situacao, 'nova'); assert.equal(r.versao, '9.9.9');
-  assert.equal(r.exe.browser_download_url, 'https://github.com/o/r/releases/download/v9.9.9/Kontor-Gestao-Instalador-9.9.9.exe');
+  assert.equal(r.exe.browser_download_url, 'https://github.com/o/r/releases/download/v9.9.9/Kontor-Transportadora-Instalador-9.9.9.exe');
   assert.ok(urlPermitida(r.exe.browser_download_url));
 });

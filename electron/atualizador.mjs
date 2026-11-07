@@ -15,7 +15,7 @@ export function compararVersoes(a, b) {
 /** Escolhe o instalador (.exe) e o arquivo de checksum (.sha256) de uma release do GitHub. */
 export function escolherAssets(release) {
   const assets = release?.assets ?? [];
-  const exe = assets.find((a) => /^Kontor-Gestao-Instalador-[\d.]+\.exe$/i.test(a.name));
+  const exe = assets.find((a) => /^Kontor-(Gestao|Transportadora)-Instalador-[\d.]+\.exe$/i.test(a.name));
   if (!exe) return null;
   const sha = assets.find((a) => a.name === `${exe.name}.sha256`);
   return { exe, sha };
@@ -54,6 +54,6 @@ async function releasePelaPagina(repo, buscar) {
   const r = await buscar(`https://github.com/${repo}/releases/latest`, { headers: { 'User-Agent': 'Kontor-Gestao' } });
   const m = /\/releases\/tag\/v?([\d.]+)\/?$/.exec(new URL(r.url).pathname + '');
   if (!r.ok || !m) return null;
-  const base = `https://github.com/${repo}/releases/download/v${m[1]}/Kontor-Gestao-Instalador-${m[1]}.exe`;
-  return { tag_name: `v${m[1]}`, body: '', assets: [{ name: `Kontor-Gestao-Instalador-${m[1]}.exe`, browser_download_url: base }, { name: `Kontor-Gestao-Instalador-${m[1]}.exe.sha256`, browser_download_url: base + '.sha256' }] };
+  const base = `https://github.com/${repo}/releases/download/v${m[1]}/Kontor-Transportadora-Instalador-${m[1]}.exe`;
+  return { tag_name: `v${m[1]}`, body: '', assets: [{ name: `Kontor-Transportadora-Instalador-${m[1]}.exe`, browser_download_url: base }, { name: `Kontor-Transportadora-Instalador-${m[1]}.exe.sha256`, browser_download_url: base + '.sha256' }] };
 }
