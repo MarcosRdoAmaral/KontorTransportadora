@@ -5366,7 +5366,8 @@ function tituloDaAba(h) {
   if (nome === 'relatorios' && param === 'documentacao') return 'Documentação';
   if (nome === 'config') return 'Configurações';
   const a = document.querySelector(`#menu a[href="#/${nome}"]`);
-  const t = a?.textContent.trim();
+  // só o nome do item: sem os selos ("contratar", contadores) que ficam dentro do link
+  const t = a ? [...a.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim() : '';
   return t || { inicio: 'Início', nota: 'Nota', painel: 'Visão geral' }[nome] || nome.replace(/-/g, ' ').replace(/^./, (x) => x.toUpperCase());
 }
 // As abas valem só enquanto o programa está aberto: ficam em sessionStorage (somem ao fechar) e saem também no logout.

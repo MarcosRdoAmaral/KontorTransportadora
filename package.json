@@ -1,6 +1,6 @@
 {
   "name": "kontor-transportadora",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Kontor Gestão Transportadora — operação, frota e financeiro de transportadoras para Windows",
   "main": "electron/main.mjs",
   "kontor": {
