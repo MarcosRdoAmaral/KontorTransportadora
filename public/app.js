@@ -3271,7 +3271,7 @@ async function telaVeiculos() {
 // ---------------------------------------------------------------------------
 
 const STATUS_VIAGEM = {
-  AGUARDANDO_COLETA: { nome: 'Aguardando coleta', cor: 'var(--laranja)' },
+  AGUARDANDO_COLETA: { nome: 'Aguardando coleta', cor: 'var(--ambar)' },
   EM_TRANSITO: { nome: 'Em trânsito', cor: '#60a5fa' },
   ENTREGUE: { nome: 'Entregue', cor: 'var(--verde)' },
   CANCELADA: { nome: 'Cancelada', cor: 'var(--tinta-2)' },
@@ -4442,7 +4442,7 @@ function telaMinhaConta() {
 }
 
 const TEMAS = [
-  { id: 'preto-laranja', nome: 'Preto e laranja', cores: ['#0f0f0f', '#0a0a0a', '#fb923d'] },
+  { id: 'preto-laranja', nome: 'Verde e amarelo', cores: ['#05200f', '#07120c', '#facc15'] },
   { id: 'branco-laranja', nome: 'Branco e laranja', cores: ['#ffffff', '#f6f3ef', '#d9600c'] },
   { id: 'azul-dourado', nome: 'Azul e dourado', cores: ['#060d1d', '#091226', '#dcb25a'] },
   { id: 'azul-roxo', nome: 'Azul e roxo', cores: ['#070b22', '#0a0f2b', '#a78bfa'] },

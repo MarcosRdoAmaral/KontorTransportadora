@@ -1,28 +1,29 @@
-/* Kontor Gestão — temas: preto e laranja (padrão), branco e laranja, azul e dourado (data-tema no <html>) */
+/* Kontor Gestão Transportadora — temas: verde e amarelo (padrão), branco e laranja, azul e dourado (data-tema no <html>) */
 :root {
-  --papel: #0a0a0a;
-  --superficie: #141414;
-  --superficie-2: #1b1b1b;
-  --campo: #0e0e0e;
-  --linha: #2a2a2a;
-  --tinta: #ececec;
-  --tinta-2: #9b9b9b;
-  --laranja: #fb923d;
-  --laranja-forte: #e17b33;
-  --laranja-fundo: rgba(251, 146, 61, .12);
+  /* Transportadora: verde e amarelo (padrão). "laranja" é o nome histórico da cor de destaque. */
+  --papel: #07120c;
+  --superficie: #0e1c14;
+  --superficie-2: #132519;
+  --campo: #0a1610;
+  --linha: #1f3a2a;
+  --tinta: #eef3ee;
+  --tinta-2: #9fb3a6;
+  --laranja: #facc15;
+  --laranja-forte: #22c55e;
+  --laranja-fundo: rgba(250, 204, 21, .12);
   --verde: #4ade80;
-  --verde-fundo: #11271a;
-  --ambar: #f5c542;
-  --ambar-fundo: #2a2210;
+  --verde-fundo: #0f2a1a;
+  --ambar: #fde047;
+  --ambar-fundo: #2a2708;
   --vermelho: #f87171;
   --vermelho-fundo: #2d1514;
-  --cinza-fundo: #1f1f1f;
-  --brilho-1: #361d0d; --brilho-2: #1d1108;
-  --lateral: #0c1830; --lateral-borda: #18294a; /* Transportadora: lateral azul-escuro com destaque laranja */
-  --borda-leve: #222; --borda-campo: #262626; --borda-botao: #333; --borda-botao-hover: #555; --borda-tracejada: #3a3a3a;
-  --placeholder: #5c5c5c; --menu: #d6d6d6; --sombra: rgba(0, 0, 0, .55); --cortina: rgba(0, 0, 0, .7);
-  --foco: rgba(251, 146, 61, .22); --laranja-hover: #ffa459; --sobre-acento: #1a1006;
-  --ambar-borda: #4d3f17; --aviso-fundo: #3a2208; --aviso-texto: #ffd9b0;
+  --cinza-fundo: #16261c;
+  --brilho-1: #123a22; --brilho-2: #0a1f13;
+  --lateral: #05200f; --lateral-borda: #0f3a22;
+  --borda-leve: #183224; --borda-campo: #1c3a2a; --borda-botao: #28503a; --borda-botao-hover: #3f7a58; --borda-tracejada: #2f5a42;
+  --placeholder: #5f7a6a; --menu: #d9e6dc; --sombra: rgba(0, 0, 0, .55); --cortina: rgba(0, 0, 0, .7);
+  --foco: rgba(250, 204, 21, .25); --laranja-hover: #fde047; --sobre-acento: #1a1600;
+  --ambar-borda: #4d4717; --aviso-fundo: #2b2a08; --aviso-texto: #fef08a;
   --logo-filtro: none; --logo-placa: transparent;
   --raio: 8px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
