@@ -5209,8 +5209,10 @@ function fecharAba(id) {
 }
 function pintarAbas() {
   const caixa = $('#abas-app'); if (!caixa) return;
+  const fechavel = abas.lista.length > 1;
   caixa.innerHTML = abas.lista.map((a) => `<div class="aba-app ${a.id === abas.ativa ? 'ativa' : ''}" data-aba="${a.id}" title="${esc(tituloDaAba(a.hash))}">
-      <button type="button" class="aba-ir">${esc(tituloDaAba(a.hash))}</button>${abas.lista.length > 1 ? `<button type="button" class="aba-fechar" data-fechar-aba="${a.id}" aria-label="Fechar aba">×</button>` : ''}</div>`).join('')
+      <button type="button" class="aba-ir">${esc(tituloDaAba(a.hash))}</button>${fechavel ? `<button type="button" class="aba-fechar" data-fechar-aba="${a.id}" aria-label="Fechar aba">×</button>` : ''}</div>`).join('')
+    + '<div class="aba-mais" id="aba-mais" hidden><button type="button" class="aba-mais-botao" id="aba-mais-botao" aria-haspopup="true" aria-expanded="false" title="Outras abas abertas">☰ <span id="aba-mais-qtd"></span></button><div class="aba-mais-lista" id="aba-mais-lista" hidden></div></div>'
     + '<button type="button" class="aba-nova" id="aba-nova" title="Nova aba (Início)" aria-label="Nova aba">+</button>';
   caixa.querySelectorAll('[data-aba]').forEach((el) => {
     const aba = abas.lista.find((x) => x.id === Number(el.dataset.aba));
@@ -5219,12 +5221,54 @@ function pintarAbas() {
   });
   caixa.querySelectorAll('[data-fechar-aba]').forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); fecharAba(Number(b.dataset.fecharAba)); }));
   $('#aba-nova').onclick = () => { abas.pendente = 'vazia'; if (location.hash === '#/inicio') abasNavegou(); else location.hash = '#/inicio'; };
-  caixa.querySelector('.aba-app.ativa')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const lista = $('#aba-mais-lista'), botao = $('#aba-mais-botao');
+  const abrirMenu = (sim) => { lista.hidden = !sim; botao.setAttribute('aria-expanded', String(sim)); };
+  botao.onclick = (ev) => { ev.stopPropagation(); abrirMenu(lista.hidden); };
+  ajustarAbas();
+}
+
+/**
+ * Abas que não cabem na barra vão para o menu ☰ (sem encolher nem distorcer as visíveis).
+ * A aba ativa fica sempre visível; as demais entram na ordem em que foram abertas.
+ */
+function ajustarAbas() {
+  const caixa = $('#abas-app'); if (!caixa) return;
+  const els = [...caixa.querySelectorAll('.aba-app')];
+  const mais = $('#aba-mais'), lista = $('#aba-mais-lista');
+  if (!mais) return;
+  els.forEach((el) => (el.hidden = false));
+  mais.hidden = true;
+  const larguraAba = els[0]?.offsetWidth || 180;
+  const folga = 6;
+  const reservado = ($('#aba-nova')?.offsetWidth ?? 34) + folga;
+  const larguraMais = 64 + folga;
+  const disponivel = caixa.clientWidth - reservado;
+  const cabemTodas = Math.floor((disponivel + folga) / (larguraAba + folga));
+  if (els.length <= cabemTodas) { lista.innerHTML = ''; return; }
+  const cabem = Math.max(1, Math.floor((disponivel - larguraMais + folga) / (larguraAba + folga)));
+  const iAtiva = abas.lista.findIndex((x) => x.id === abas.ativa);
+  const visiveis = new Set(abas.lista.slice(0, cabem).map((x) => x.id));
+  if (iAtiva >= cabem) { visiveis.delete(abas.lista[cabem - 1].id); visiveis.add(abas.ativa); }
+  const ocultas = abas.lista.filter((x) => !visiveis.has(x.id));
+  els.forEach((el) => (el.hidden = !visiveis.has(Number(el.dataset.aba))));
+  mais.hidden = false;
+  $('#aba-mais-qtd').textContent = String(ocultas.length);
+  lista.innerHTML = ocultas.map((a) => `<div class="aba-mais-item" data-ir="${a.id}"><button type="button" class="aba-ir">${esc(tituloDaAba(a.hash))}</button>`
+    + `<button type="button" class="aba-fechar" data-fechar-oculta="${a.id}" aria-label="Fechar aba">×</button></div>`).join('');
+  lista.querySelectorAll('[data-ir]').forEach((el) => (el.querySelector('.aba-ir').onclick = () => { lista.hidden = true; irParaAba(abas.lista.find((x) => x.id === Number(el.dataset.ir))); }));
+  lista.querySelectorAll('[data-fechar-oculta]').forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); fecharAba(Number(b.dataset.fecharOculta)); }));
 }
 function iniciarAbas() {
   const barra = $('#barra-topo');
   if (!barra || $('#abas-app')) return;
   barra.insertAdjacentHTML('afterbegin', '<div class="abas-app" id="abas-app" role="tablist" aria-label="Telas abertas"></div>');
+  let espera;
+  window.addEventListener('resize', () => { clearTimeout(espera); espera = setTimeout(ajustarAbas, 80); });
+  document.addEventListener('click', (ev) => {
+    const lista = $('#aba-mais-lista');
+    if (lista && !lista.hidden && !ev.target.closest('#aba-mais')) { lista.hidden = true; $('#aba-mais-botao')?.setAttribute('aria-expanded', 'false'); }
+  });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { const l = $('#aba-mais-lista'); if (l && !l.hidden) l.hidden = true; } });
   carregarAbas();
   // menu lateral e rodapé: abre a funcionalidade numa aba (ou volta para a aba dela, se já estiver aberta)
   document.addEventListener('click', (ev) => {
