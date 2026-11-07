@@ -247,6 +247,8 @@ const COR = { get verde() { return cssVar('--verde'); }, get laranja() { return 
 // ---------------------------------------------------------------------------
 
 function sair() {
+  try { sessionStorage.removeItem(chaveAbas()); } catch {}
+  abas.lista = []; abas.ativa = null;
   localStorage.removeItem('token');
   estado.token = null;
   $('#app').hidden = true;
@@ -464,18 +466,16 @@ async function telaPainel() {
   const fin = empresa() ? await api('GET', `/api/empresas/${estado.empresaId}/painel?mes=${mes}`).catch(() => null) : null;
   const k = fin?.kpis;
   conteudo.innerHTML = `
-    <div class="topo">
-      <div><h1>Painel do mês</h1><p class="sutil">Cobranças e recebimentos de ${esc(empresa()?.nome_fantasia || empresa()?.razao_social || 'sua empresa')} e notas de todas as empresas.</p></div>
-      <label>Mês <input type="month" id="mes" value="${mes}"></label>
-    </div>
+    ${cabecaTela('painel', 'Painel do mês', `Cobranças e recebimentos de ${esc(empresa()?.nome_fantasia || empresa()?.razao_social || 'sua empresa')} e notas de todas as empresas.`,
+      `<div class="tl-mes"><span class="orc-ico">${icone('calendario')}</span><label>Mês <input type="month" id="mes" value="${mes}"></label></div>`)}
     ${fin ? `
-    <div class="resumo">
-      <div class="cartao"><div class="sutil">Faturado</div><div class="valor">${compacto(k.faturado)}</div><div class="dica">${k.qtd} cobrança(s) com vencimento no mês</div></div>
-      <div class="cartao"><div class="sutil">Recebido</div><div class="valor" style="color:${COR.verde}">${compacto(k.recebido)}</div><div class="dica">${k.pctRecebido}% do faturado</div></div>
-      <div class="cartao"><div class="sutil">A receber</div><div class="valor">${compacto(k.aReceber)}</div><div class="dica">${k.qtdAReceber} em dia</div></div>
-      <div class="cartao"><div class="sutil">Em atraso</div><div class="valor" style="color:${k.qtdAtraso ? COR.vermelho : 'inherit'}">${compacto(k.emAtraso)}</div><div class="dica">${k.qtdAtraso} cobrança(s) · inadimplência ${k.inadimplencia}%</div></div>
-      <div class="cartao"><div class="sutil">Falta emitir</div><div class="valor">${fin.faltamEmitir.qtd}</div><div class="dica">de ${fin.faltamEmitir.total} cliente(s) em ${nomeMes(mes)}</div></div>
-    </div>
+    ${cartoesKpi([
+      { ic: 'tl-doc', tom: 'laranja', valor: compacto(k.faturado), rotulo: `Faturado · ${k.qtd} cobrança(s) com vencimento no mês` },
+      { ic: 'tl-check', tom: 'verde', valor: compacto(k.recebido), rotulo: `Recebido · ${k.pctRecebido}% do faturado` },
+      { ic: 'tl-relogio', tom: 'neutro', valor: compacto(k.aReceber), rotulo: `A receber · ${k.qtdAReceber} em dia` },
+      { ic: 'tl-alerta', tom: k.qtdAtraso ? 'vermelho' : 'neutro', valor: compacto(k.emAtraso), rotulo: `Em atraso · ${k.qtdAtraso} cobrança(s) · inadimplência ${k.inadimplencia}%` },
+      { ic: 'agenda', tom: fin.faltamEmitir.qtd ? 'laranja' : 'verde', valor: fin.faltamEmitir.qtd, rotulo: `Falta emitir · de ${fin.faltamEmitir.total} cliente(s) em ${nomeMes(mes)}` },
+    ])}
     <div class="cartao" style="margin-top:16px"><h2 style="margin-top:0">Dicas para o seu caixa</h2>
       <ul class="dicas">${fin.dicas.map((d) => `<li>${esc(d)}</li>`).join('')}</ul></div>
     <div class="duas-colunas">
@@ -495,18 +495,16 @@ async function telaPainel() {
         ${fin.faltamEmitir.qtd ? `<ul class="dicas">${fin.faltamEmitir.clientes.map((c) => `<li>${esc(c.nome)}</li>`).join('')}${fin.faltamEmitir.qtd > fin.faltamEmitir.clientes.length ? `<li class="sutil">e mais ${fin.faltamEmitir.qtd - fin.faltamEmitir.clientes.length}…</li>` : ''}</ul>` : '<p class="sutil">Todos os clientes já foram faturados neste mês.</p>'}
         <p class="dica"><a href="#/emitir">Emitir agora</a></p></div>
     </div>
-    <h2>Notas por empresa</h2>` : ''}
-    <div class="resumo">
-      <div class="cartao"><div class="sutil">Faturado (autorizadas)</div><div class="valor">${brl(tot.fat)}</div></div>
-      <div class="cartao"><div class="sutil">Notas autorizadas</div><div class="valor">${tot.aut}</div></div>
-      <div class="cartao"><div class="sutil">Pendências</div><div class="valor ${tot.pend ? 'pendente-txt' : ''}">${tot.pend}</div>
-        <div class="dica">Rejeitadas ou sem resposta da Sefin</div></div>
-    </div>
-    <h2>Por empresa</h2>
-    ${linhas.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Empresa</th><th class="num">Autorizadas</th><th class="num">Canceladas</th><th class="num">Pendências</th><th class="num">Faturado</th></tr></thead><tbody>
+    <h2 class="tl-sub">Notas por empresa</h2>` : ''}
+    ${cartoesKpi([
+      { ic: 'tl-moedas', tom: 'verde', valor: brl(tot.fat), rotulo: 'Faturado (notas autorizadas)' },
+      { ic: 'tl-doc', tom: 'laranja', valor: tot.aut, rotulo: 'Notas autorizadas' },
+      { ic: 'tl-alerta', tom: tot.pend ? 'vermelho' : 'neutro', valor: tot.pend, rotulo: 'Pendências · rejeitadas ou sem resposta da Sefin' },
+    ])}
+    ${linhas.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Empresa</th><th class="num">Autorizadas</th><th class="num">Canceladas</th><th class="num">Pendências</th><th class="num">Faturado</th></tr></thead><tbody>
       ${linhas.map((l) => `<tr class="clicavel" data-id="${l.empresa_id}"><td>${esc(l.empresa)}</td><td class="num">${l.autorizadas ?? 0}</td><td class="num">${l.canceladas ?? 0}</td>
         <td class="num ${l.pendencias ? 'pendente-txt' : ''}">${l.pendencias ?? 0}</td><td class="num">${brl(l.faturado)}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="vazio">Nenhuma empresa cadastrada ainda.</div>'}`;
+    </tbody></table></div></div>` : vazioTela('painel', 'Nenhuma empresa cadastrada', 'Cadastre a primeira empresa para acompanhar o mês.')}`;
   $('#mes').onchange = (e) => { telaPainel.mes = e.target.value; telaPainel(); };
   conteudo.querySelectorAll('tr[data-id]').forEach((tr) => (tr.onclick = () => {
     estado.empresaId = Number(tr.dataset.id); localStorage.setItem('empresaId', estado.empresaId);
@@ -549,16 +547,19 @@ async function telaEmitir(param) {
   }
 
   conteudo.innerHTML = `
-    <div class="topo"><div>
+    <div class="orc-topo em-topo"><span class="orc-ico grande">${icone('em-doc')}</span><div style="flex:1">
       <h1>${corrigindo ? `Corrigir e reenviar DPS nº ${corrigindo.n_dps}` : orc ? `Emitir nota do orçamento nº ${orc.numero}` : origem ? 'Emitir nota a partir de outra' : 'Emitir nota'}</h1>
-      <p class="sutil">${esc(e.razao_social)} — ${fmtDoc(e.documento)}</p>
-    </div></div>
+      <p class="sutil">Emissão de NFS-e • ${esc(e.razao_social)} — ${fmtDoc(e.documento)}</p>
+    </div>${e.modo_emissao === 'PORTAL' || e.nfse_procuracao ? '' : e.tem_certificado && e.cert_validade && new Date(e.cert_validade) >= new Date()
+      ? `<a class="em-cert" href="#/empresas" title="Ver o certificado">${icone('ok')} Certificado válido ›</a>`
+      : `<a class="em-cert ruim" href="#/empresas" title="Ver o certificado">${icone('alerta')} ${e.tem_certificado ? 'Certificado vencido' : 'Sem certificado'} ›</a>`}</div>
+    <nav class="em-passos" aria-label="Etapas da emissão"><button type="button" id="em-p1" class="ativo"><b>1</b>Tomador</button><i></i><button type="button" id="em-p2"><b>2</b>Serviço</button><i></i><button type="button" id="em-p3"><b>3</b>Valores e informações</button></nav>
     ${orc ? `<div class="banner">Orçamento nº ${orc.numero} de <strong>${esc(orc.cliente ?? '')}</strong>: valor desta nota ${brl(orc.valor)} (ainda falta faturar até ${brl(orc.maximo)}). Confira o cliente, o serviço e a tributação antes de emitir. ${orc.tomadorId ? '' : '<strong>Este orçamento não tem cliente cadastrado: escolha ou cadastre o cliente abaixo.</strong>'}</div>` : ''}
     ${origem ? `<div class="banner">Copiado da ${origem.n_nfse ? `NFS-e nº ${origem.n_nfse}` : `DPS ${origem.serie}/${origem.n_dps}`} (${esc(origem.tomador_nome ?? 'sem tomador')}, ${brl(origem.valor_servico)}). Isto emite uma <strong>nota nova</strong>, com outro número: confira a competência, o valor e a descrição antes de emitir. <a href="#/nota/${origem.id}">Voltar para a nota</a></div>` : ''}
     ${e.ambiente === 2 ? '<div class="banner teste">Esta empresa está em produção restrita: as notas são de teste e não têm valor fiscal.</div>' : ''}
     ${e.modo_emissao === 'PORTAL' ? '<div class="banner teste">Esta empresa emite as notas pelo portal do Emissor Nacional (sem certificado). Aqui você gera o <strong>boleto</strong>; a nota é emitida no portal e importada em <a href="#/notas">Notas emitidas</a>.</div>' : !e.tem_certificado ? '<div class="banner teste">Cadastre o certificado A1 da empresa antes de emitir.</div>' : ''}
     <form id="form-emitir">
-      <fieldset><legend>Tomador</legend>
+      <fieldset class="em-sec" id="sec-tomador"><legend class="em-leg"><span class="orc-ico">${icone('em-users')}</span><span><strong>01. Tomador do serviço</strong><small>Informe quem contratou o serviço.</small></span></legend>
         <div class="grade">
           <label class="largo">Quem contratou o serviço <span class="dica">(digite para buscar · F2 abre a consulta completa)</span>
             <select name="tomadorId">
@@ -567,7 +568,8 @@ async function telaEmitir(param) {
             </select>
           </label>
         </div>
-        <div class="acoes"><button type="button" id="novo-tomador">Cadastrar novo cliente</button></div>
+        <div id="tom-info" class="em-info" hidden></div>
+        <div class="acoes"><button type="button" id="novo-tomador" class="orc-ouro">${icone('em-valor').replace(/<svg.*<\/svg>/, '')}+ Novo cliente</button></div>
       </fieldset>
 
       <div id="serv-padrao" class="banner" hidden></div>
@@ -585,7 +587,7 @@ async function telaEmitir(param) {
         <p class="dica" id="comp-info"></p>
       </fieldset>
 
-      <fieldset><legend>Serviço</legend>
+      <fieldset class="em-sec" id="sec-servico"><legend class="em-leg"><span class="orc-ico">${icone('em-cfg')}</span><span><strong>02. Serviço prestado</strong><small>Configure o serviço e as informações fiscais.</small></span></legend>
         <div class="grade">
           <label class="largo">Serviço cadastrado
             <select name="servicoId">
@@ -607,7 +609,7 @@ async function telaEmitir(param) {
         </div>
       </fieldset>
 
-      <fieldset><legend>Tributação</legend>
+      <fieldset class="em-sec" id="sec-valores"><legend class="em-leg"><span class="orc-ico">${icone('em-valor')}</span><span><strong>03. Valores e informações</strong><small>Tributação, retenções e informações complementares.</small></span></legend>
         <div class="grade">
           <label>ISSQN
             <select name="tribISSQN">
@@ -662,7 +664,7 @@ async function telaEmitir(param) {
       <fieldset id="bloco-conferencia"><legend>Conferência da tributação</legend>
         <div class="rolagem" id="conferencia"></div>
       </fieldset>
-      <div class="acoes"><button class="primario" type="submit" id="btn-emitir">${corrigindo ? 'Reenviar à Sefin' : 'Emitir nota'}</button></div>
+      <div class="em-rodape"><span class="em-rasc" id="em-rasc">${icone('em-rasc')}<span id="em-rasc-txt">Rascunho salvo automaticamente</span></span><span class="em-botoes"><button type="button" id="em-salvar-rasc">${icone('em-salvar')} Salvar rascunho</button><button class="primario orc-salvar" type="submit" id="btn-emitir">${corrigindo ? 'Reenviar à Sefin' : 'Emitir nota'}</button></span></div>
     </form>`;
 
   const f = $('#form-emitir');
@@ -960,6 +962,53 @@ async function telaEmitir(param) {
     recalcular();
   };
   if (orc?.servicoId) { f.servicoId.value = String(orc.servicoId); f.servicoId.onchange(); f.descricao.value = orc.descricao; f.valor.value = p.valor; }
+  // ---- tomador escolhido: mostra nome, documento e contato logo abaixo
+  const mostrarTom = () => {
+    const t = tomadores.find((x) => x.id === Number(f.tomadorId.value)), box = $('#tom-info');
+    box.hidden = !t;
+    if (t) box.innerHTML = `<span class="em-ok">${icone('ok')}</span><strong>${esc(t.nome)}</strong>${t.documento ? `<span>${t.tipo_doc === 'CPF' ? 'CPF' : 'CNPJ'}: ${fmtDoc(t.documento)}</span>` : ''}${t.email ? `<span>${esc(t.email)}</span>` : ''}${t.fone ? `<span>${esc(t.fone)}</span>` : ''}`;
+  };
+  f.tomadorId.addEventListener('change', mostrarTom); mostrarTom();
+  // ---- etapas no alto: clicar leva à seção; a etapa acompanha a rolagem
+  const passos = [['sec-tomador', 'em-p1'], ['sec-servico', 'em-p2'], ['sec-valores', 'em-p3']];
+  const marcarPasso = (sec) => { const i = passos.findIndex((x) => x[0] === sec); passos.forEach(([, b], k) => { const el = $('#' + b); if (el) { el.classList.toggle('ativo', k === i); el.classList.toggle('feito', k < i); } }); };
+  passos.forEach(([sec, b]) => { $('#' + b).onclick = () => { $('#' + sec).scrollIntoView({ behavior: 'smooth', block: 'start' }); marcarPasso(sec); }; });
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) marcarPasso(en.target.id); }), { rootMargin: '-15% 0px -65% 0px' });
+    passos.forEach(([sec]) => io.observe($('#' + sec)));
+  }
+  // ---- rascunho: o que foi digitado fica guardado neste computador e volta ao reabrir (não vale para correção, cópia ou orçamento)
+  const usaRasc = !corrigindo && !origem && !(typeof orc !== 'undefined' && orc);
+  const chaveRasc = `kontor-rascunho-nota:${estado.usuario?.id ?? ''}:${e.id}`;
+  const horaRasc = (ms) => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const guardarRasc = (avisar) => {
+    if (!usaRasc) return;
+    try {
+      const v = {};
+      [...f.elements].forEach((x) => { if (x.name && x.type !== 'submit' && x.type !== 'button') v[x.name] = x.type === 'checkbox' ? x.checked : x.value; });
+      if (!v.tomadorId && !v.descricao && !v.valor) { localStorage.removeItem(chaveRasc); $('#em-rasc-txt').textContent = 'Rascunho salvo automaticamente'; return; }
+      const em = Date.now();
+      localStorage.setItem(chaveRasc, JSON.stringify({ v, em }));
+      $('#em-rasc-txt').textContent = `Rascunho salvo às ${horaRasc(em)}`;
+      if (avisar) aviso('Rascunho salvo.');
+    } catch { /* sem armazenamento: segue sem rascunho */ }
+  };
+  const limparRascunho = () => { try { localStorage.removeItem(chaveRasc); } catch { /* ok */ } };
+  if (usaRasc) {
+    try {
+      const r = JSON.parse(localStorage.getItem(chaveRasc) || 'null');
+      if (r?.v && !telaEmitir.prefTomador) {
+        for (const [k, val] of Object.entries(r.v)) { const el = f.elements[k]; if (!el || el.type === 'submit' || el.type === 'button') continue; if (el.type === 'checkbox') el.checked = !!val; else el.value = val; }
+        ['tomadorId', 'acao', 'tribISSQN', 'issRetido'].forEach((k) => f.elements[k]?.dispatchEvent(new Event('change')));
+        f.valor.dispatchEvent(new Event('input'));
+        mostrarTom();
+        $('#em-rasc-txt').textContent = `Rascunho restaurado (salvo às ${horaRasc(r.em)})`;
+      }
+    } catch { /* rascunho ilegível: ignora */ }
+    let tRasc; f.addEventListener('input', () => { clearTimeout(tRasc); tRasc = setTimeout(() => guardarRasc(false), 800); });
+    f.addEventListener('change', () => { clearTimeout(tRasc); tRasc = setTimeout(() => guardarRasc(false), 800); });
+  }
+  $('#em-salvar-rasc').onclick = () => { if (usaRasc) guardarRasc(true); else aviso('Este tipo de emissão não usa rascunho.'); };
   f.onsubmit = async (ev) => {
     ev.preventDefault();
     if (portal && !f.tomadorId.value) { $('#erro-emitir').textContent = 'Escolha o cliente para gerar o boleto.'; return; }
@@ -1000,6 +1049,7 @@ async function telaEmitir(param) {
       if (r.email?.status === 'ENVIADO') partes.push(`e-mail enviado para ${r.email.para}`);
       if (r.email?.status === 'ERRO') partes.push(`e-mail não enviado: ${r.email.erro}`);
       aviso(partes.join(' · ').replace(/^./, (c) => c.toUpperCase()) + '.');
+      limparRascunho();
       location.hash = r.nota ? `#/nota/${r.nota.id}` : '#/cobrancas';
     } catch (err) {
       $('#erro-emitir').textContent = mensagemErro(err);
@@ -1070,6 +1120,7 @@ async function telaCobrancas() {
   const coraAtiva = !!cora?.ativa;
   const podeEditar = estado.usuario.papel !== 'cliente';
   const st = telaCobrancas.estado ??= { carteira: 'BOLETO' };
+  st.sit ??= ''; st.q ??= ''; st.cli ??= ''; st.mes ??= ''; st.pagina ??= 1;
   const daCarteira = (k) => lista.filter((c) => (c.forma ?? 'BOLETO') === k);
   const abertoDe = (l) => l.filter((c) => !['CANCELADO', 'PAGO', 'REJEITADO'].includes(c.status)).reduce((a, c) => a + c.valor, 0);
   const vis = daCarteira(st.carteira);
@@ -1079,6 +1130,15 @@ async function telaCobrancas() {
   const aRemeter = lista.filter((c) => c.status === 'A_REMETER' || c.baixa_pendente === 1).length;
   const hoje = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
   const ativo = (c) => !['PAGO', 'CANCELADO'].includes(c.status);
+  const vencida = (c) => ativo(c) && c.vencimento < hoje;
+  const situ = { total: lista.length, pagas: lista.filter((c) => c.status === 'PAGO').length, vencidas: lista.filter(vencida).length, abertas: lista.filter((c) => ativo(c) && !vencida(c)).length };
+  const clientes = [...new Set(lista.map((c) => c.tomador_nome).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
+  const termo = st.q.trim().toLowerCase();
+  const visF = vis.filter((c) => (!st.sit || (st.sit === 'PAGO' ? c.status === 'PAGO' : st.sit === 'VENCIDO' ? vencida(c) : ativo(c) && !vencida(c)))
+    && (!st.cli || c.tomador_nome === st.cli) && (!st.mes || String(c.vencimento).startsWith(st.mes))
+    && (!termo || [c.tomador_nome, c.descricao, c.n_nfse, brl(c.valor)].some((x) => String(x ?? '').toLowerCase().includes(termo))));
+  const filtrando = !!(st.sit || st.q || st.cli || st.mes);
+  const pagC = paginar(visF, st.pagina); st.pagina = pagC.pagina;
   const acoes = (c) => {
     const pronto = c.forma === 'PIX' ? c.pix_copia_cola : c.nosso_numero;
     const principais = [
@@ -1098,30 +1158,49 @@ async function telaCobrancas() {
     return `<div class="cob-acoes">${principais}${mais ? `<details class="cob-mais"><summary title="Mais ações">⋯</summary><div class="cob-menu">${mais}</div></details>` : ''}</div>`;
   };
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Cobranças</h1><p class="sutil">${lista.length} registros · ${brl(abertoDe(lista))} em aberto</p></div>
+    <div class="orc-topo tl-topo"><span class="orc-ico grande">${icone('cobrancas')}</span><div class="tl-tit"><h1>Cobranças</h1><p class="sutil">Acompanhe e gerencie suas cobranças de forma simples e eficiente. ${brl(abertoDe(lista))} em aberto.</p></div>
       ${podeEditar ? `<div class="acoes">${coraAtiva ? '<button id="cora-atualizar" class="primario" title="Registra boletos pendentes, dá baixa nos pagos e traz o extrato da Cora">Atualizar da Cora</button>' : ''}${pix || (coraAtiva && !aRemeter) ? '' : `<button id="gerar-remessa" class="primario" ${conta && aRemeter ? '' : 'disabled'}>Gerar remessa${aRemeter ? ` (${aRemeter})` : ''}</button>`}
         <button id="novo-boleto" class="primario">Nova cobrança</button>
         <button id="modelo-wa">Mensagem do WhatsApp</button>
         <button id="cfg-demo" title="Texto do rodapé do demonstrativo de cobrança">Demonstrativo</button>
         ${pix ? '' : `<button id="ler-retorno" ${conta ? '' : 'disabled'}>Importar retorno</button><input type="file" id="arq-retorno" accept=".ret,.RET,.txt,.TXT,.rem,.REM,*/*" hidden>`}</div>` : ''}</div>
+    ${cartoesKpi([
+      { ic: 'tl-doc', tom: 'laranja', valor: situ.total, rotulo: 'Total de cobranças', filtro: '' },
+      { ic: 'tl-check', tom: 'verde', valor: situ.pagas, rotulo: 'Pagas', filtro: 'PAGO' },
+      { ic: 'tl-relogio', tom: 'laranja', valor: situ.abertas, rotulo: 'Em aberto', filtro: 'ABERTO' },
+      { ic: 'tl-alerta', tom: 'vermelho', valor: situ.vencidas, rotulo: 'Vencidas', filtro: 'VENCIDO' },
+    ])}
     <nav class="abas carteiras" aria-label="Carteiras de cobrança">
       <a href="#" data-carteira="BOLETO" class="${pix ? '' : 'ativo'}">Carteira boleto <span class="contagem">${daCarteira('BOLETO').length}</span></a>
       <a href="#" data-carteira="PIX" class="${pix ? 'ativo' : ''}">Carteira Pix <span class="contagem">${daCarteira('PIX').length}</span>${faltaPix ? ` <span class="selo-estado" style="--c:var(--laranja)">${faltaPix} sem Pix</span>` : ''}</a>
     </nav>
+    <form class="tl-filtros" id="filtros-cob">
+      <label>Vencimento (mês) <input type="month" name="mes" value="${esc(st.mes)}"></label>
+      <label>Cliente <select name="cli"><option value="">Todos</option>${clientes.map((x) => `<option ${st.cli === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      <label>Situação <select name="sit"><option value="">Todas</option><option value="ABERTO" ${st.sit === 'ABERTO' ? 'selected' : ''}>Em aberto</option><option value="VENCIDO" ${st.sit === 'VENCIDO' ? 'selected' : ''}>Vencidas</option><option value="PAGO" ${st.sit === 'PAGO' ? 'selected' : ''}>Pagas</option></select></label>
+      <label class="busca">Buscar <input name="q" placeholder="Buscar por cliente, número ou valor…" value="${esc(st.q)}"></label>
+      <span class="tl-acoes"><button type="button" id="cob-limpar">${icone('tl-limpar')} Limpar</button><button type="submit" class="tl-btn-ouro">${icone('tl-filtro')} Filtrar</button></span>
+    </form>
     <p class="sutil">${pix ? `Cobranças dos clientes da carteira Pix: com a chave Pix da empresa cadastrada (Empresas › Dados bancários), o Kontor gera o Pix de cada cobrança sozinho; sem ela, gere a cobrança no aplicativo do banco, clique em <strong>Informar Pix</strong> e cole o código copia e cola. O Kontor confere o código e o valor e monta o demonstrativo com o QR Code. ${brl(aberto)} em aberto.`
       : `Boletos do convênio bancário, com remessa e retorno. O demonstrativo de cobrança vai junto no e-mail. ${brl(aberto)} em aberto.`} A carteira de cada cliente fica no cadastro dele (Faturamento e cobrança).</p>
     ${coraAtiva ? `<div class="banner">Cobrança pela <strong>Cora</strong>${cora.ambiente === 'teste' ? ' (ambiente de teste)' : ''}: os boletos são registrados na Cora na hora, com Pix, e a baixa é automática (a cada 10 minutos).${cora.saldo != null ? ` Saldo na Cora: <strong>${brl(cora.saldo)}</strong>.` : ''}</div>` : ''}
     ${!pix && !conta && !coraAtiva ? `<div class="banner teste">Os dados bancários desta empresa ainda não foram informados. <a href="#/banco">Informar agora (em Empresas › Dados bancários)</a> — os boletos pendentes são gerados automaticamente depois disso.</div>` : ''}
-    ${vis.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Vencimento</th><th>Cliente</th><th>Nota</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>
-      ${vis.map((c) => `<tr><td>${dataBr(c.vencimento)}${ativo(c) && c.vencimento < hoje ? ' <span class="dica erro">vencido</span>' : ''}</td>
+    ${visF.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Nota</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>
+      ${pagC.itens.map((c) => `<tr><td>${dataBr(c.vencimento)}${ativo(c) && c.vencimento < hoje ? ' <span class="dica erro">vencido</span>' : ''}</td>
         <td>${esc(c.tomador_nome)}<br><span class="dica">${esc((c.descricao ?? '').slice(0, 60))}</span>${c.desconto > 0 ? `<br><span class="dica">desconto de ${brl(c.desconto)}: ${esc(c.desconto_motivo ?? '')}</span>` : ''}</td>
         <td>${c.nota_id ? `<a href="#/nota/${c.nota_id}">${c.n_nfse ?? '—'}</a>` : '—'}</td><td class="num">${brl(c.valor)}</td>
         <td>${c.forma === 'PIX' && c.status === 'AGUARDANDO_BANCO' ? `<span class="cor-ambar">${situacaoCobranca(c)}</span>` : situacaoCobranca(c)}${c.baixa_pendente ? ' <span class="dica">(baixa solicitada)</span>' : ''}${c.pago_em ? `<br><span class="dica">em ${dataBr(c.pago_em)}</span>` : ''}${c.observacao_banco ? `<br><span class="dica erro">${esc(c.observacao_banco)}</span>` : ''}${c.email_status ? `<br><span class="dica ${c.email_status === 'ERRO' ? 'erro' : ''}">e-mail ${c.email_status === 'ERRO' ? 'com erro' : 'enviado'}</span>` : ''}</td>
         <td class="acoes-linha">${acoes(c)}</td></tr>`).join('')}
-    </tbody></table></div>` : `<div class="vazio">${pix ? 'Nenhuma cobrança na carteira Pix. Marque “Pix copia e cola” como carteira no cadastro do cliente (Faturamento e cobrança).' : 'Nenhum boleto registrado. Escolha “Nota + cobrança” ou “Somente a cobrança” ao emitir.'}</div>`}
+    </tbody></table></div>${pagC.html}</div>` : vis.length ? vazioTela('cobrancas', 'Nenhuma cobrança encontrada', 'Não foram encontradas cobranças para os filtros selecionados. Tente ajustar o período ou os filtros de busca.', `<button type="button" class="tl-btn-borda" id="cob-limpar2">${icone('o-busca')} Limpar filtros</button>`) : `<div class="vazio">${pix ? 'Nenhuma cobrança na carteira Pix. Marque “Pix copia e cola” como carteira no cadastro do cliente (Faturamento e cobrança).' : 'Nenhum boleto registrado. Escolha “Nota + cobrança” ou “Somente a cobrança” ao emitir.'}</div>`}
     ${!pix && remessas.length ? `<h2>Remessas geradas</h2><div class="rolagem"><table class="tabela"><thead><tr><th>Nº</th><th>Data</th><th>Títulos</th><th class="num">Valor</th><th></th></tr></thead><tbody>
       ${remessas.map((r) => `<tr><td>${r.numero}</td><td>${esc(r.criado_em)}</td><td>${r.qtd_titulos}</td><td class="num">${brl(r.valor_total)}</td><td><button data-remessa="${r.id}" data-nome="${esc(r.nome_arquivo)}">Baixar arquivo</button></td></tr>`).join('')}</tbody></table></div>
       <p class="dica">Envie o arquivo de remessa no internet banking do banco, na área de cobrança. Baixe lá o arquivo de retorno e importe-o aqui para dar baixa nos pagamentos.</p>` : ''}`;
+  const refazer = () => telaCobrancas();
+  $('#filtros-cob').onsubmit = (ev) => { ev.preventDefault(); const x = lerForm(ev.target); st.mes = x.mes ?? ''; st.cli = x.cli ?? ''; st.sit = x.sit ?? ''; st.q = x.q ?? ''; st.pagina = 1; refazer(); };
+  const limpar = () => { st.mes = st.cli = st.sit = st.q = ''; st.pagina = 1; refazer(); };
+  $('#cob-limpar').onclick = limpar; if ($('#cob-limpar2')) $('#cob-limpar2').onclick = limpar;
+  conteudo.querySelectorAll('.kp[data-kp]').forEach((k) => (k.onclick = () => { st.sit = k.dataset.kp; st.pagina = 1; refazer(); }));
+  conteudo.querySelectorAll('[data-pg]').forEach((b) => (b.onclick = () => { st.pagina = Number(b.dataset.pg); refazer(); }));
   conteudo.querySelectorAll('[data-carteira]').forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); st.carteira = a.dataset.carteira; telaCobrancas(); }));
   conteudo.querySelectorAll('[data-carta]').forEach((b) => (b.onclick = () => baixar(`/api/cobrancas/${b.dataset.carta}/carta`, `Carta_Cobranca_${b.dataset.carta}.pdf`, true)));
   conteudo.querySelectorAll('[data-demo]').forEach((b) => (b.onclick = () => baixar(`/api/cobrancas/${b.dataset.demo}/demonstrativo`, `Demonstrativo_${b.dataset.demo}.pdf`, true)));
@@ -1496,7 +1575,7 @@ async function telaTributacao(aba) {
   if (aba === 'tipos') aba = 'perfis';
   if (!abas.some((a) => a[0] === aba)) aba = 'perfis';
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Tributação</h1><p class="sutil">Cadastre os impostos uma vez, monte cada tributação (alíquotas, retenções e dados da nota) e vincule serviços e compras a ela.</p></div></div>
+    ${cabecaTela('tributacao', 'Tributação', 'Cadastre os impostos uma vez, monte cada tributação (alíquotas, retenções e dados da nota) e vincule serviços e compras a ela.')}
     <nav class="abas" aria-label="Tributação">${abas.map(([k, n]) => `<a href="#/tributacao/${k}" class="${k === aba ? 'ativo' : ''}">${n}</a>`).join('')}</nav>
     <div id="trib-corpo"></div>`;
   await { perfis: abaPerfis, impostos: abaImpostos }[aba]();
@@ -1513,14 +1592,19 @@ async function abaPerfis() {
   const nomeImp = Object.fromEntries(impostos.map((i) => [i.codigo, i.nome]));
   const pct = (n) => String(n ?? 0).replace('.', ',') + '%';
   $('#trib-corpo').innerHTML = `
-    <div class="topo"><div><h2 style="margin-top:0">Tributações</h2><p class="sutil">Uma tributação é um conjunto de impostos com alíquota, redução de base, retenção e vigência. As alíquotas mudam ao longo da transição do IBS/CBS: cadastre uma linha por período.</p></div>
-      <div><button class="primario" id="novo-perfil">Nova tributação</button> <button id="gerar-serv" title="Cria uma tributação a partir das retenções já cadastradas em cada serviço">Criar a partir dos serviços</button></div></div>
+    ${cartoesKpi([
+      { ic: 'tributacao', tom: 'laranja', valor: perfis.length, rotulo: 'Tributações cadastradas' },
+      { ic: 'tl-check', tom: 'verde', valor: perfis.filter((p) => p.usos).length, rotulo: 'Em uso (com vínculos)' },
+      { ic: 'tl-relogio', tom: 'neutro', valor: perfis.filter((p) => !p.usos).length, rotulo: 'Sem uso' },
+    ])}
+    <div class="tl-filtros"><div style="flex:1 1 320px"><p class="sutil" style="margin:0">Uma tributação é um conjunto de impostos com alíquota, redução de base, retenção e vigência. As alíquotas mudam ao longo da transição do IBS/CBS: cadastre uma linha por período.</p></div>
+      <div class="sefaz-acoes"><button class="tl-btn-ouro" id="novo-perfil">Nova tributação</button> <button class="tl-btn-borda" id="gerar-serv" title="Cria uma tributação a partir das retenções já cadastradas em cada serviço">Criar a partir dos serviços</button></div></div>
     ${perfis.length ? perfis.map((p, i) => `<div class="cartao"><div class="topo" style="margin:0"><h3 style="margin:0">${esc(p.nome)} <span class="dica">${p.sentido === 'ENTRADA' ? 'Compras' : 'Serviços'}${p.padrao ? ' · padrão' : ''} · ${p.usos ? p.usos + ' vínculo(s)' : 'sem uso'}</span></h3><div><button data-ed="${i}">Editar</button>${podeExcluirRegistros() ? ` <button data-ex="${p.id}">Excluir</button>` : ''}</div></div>
       ${p.descricao ? `<p class="sutil">${esc(p.descricao)}</p>` : ''}
       <table class="tabela"><thead><tr><th>Imposto</th><th class="num">Alíquota</th><th class="num">Redução da base</th><th>Retido</th><th>CST / cClassTrib</th><th>Vigência</th></tr></thead><tbody>
       ${p.itens.map((it) => `<tr><td>${esc(nomeImp[it.imposto_codigo] ?? it.imposto_codigo)}</td><td class="num">${pct(it.aliquota)}</td><td class="num">${it.reducao_base ? pct(it.reducao_base) : '—'}</td><td>${it.retido ? 'Sim' : '—'}</td><td>${esc([it.cst, it.c_class_trib].filter(Boolean).join(' / ') || '—')}</td>
         <td>${it.vigencia_ini || it.vigencia_fim ? `${it.vigencia_ini ? dataBr(it.vigencia_ini) : 'sempre'} → ${it.vigencia_fim ? dataBr(it.vigencia_fim) : 'sem fim'}` : 'sempre'}</td></tr>`).join('') || '<tr><td colspan="6" class="dica">Sem impostos.</td></tr>'}
-      </tbody></table></div>`).join('') : '<div class="vazio">Nenhuma tributação. Crie a primeira (ex.: "Serviço — ISS 5%") ou use "Criar a partir dos serviços".</div>'}`;
+      </tbody></table></div>`).join('') : vazioTela('tributacao', 'Nenhuma tributação cadastrada', 'Crie a primeira (ex.: "Serviço — ISS 5%") ou use "Criar a partir dos serviços".')}`;
   const form = (p) => {
     p ??= { itens: [{ imposto_codigo: 'ISS', aliquota: 0, reducao_base: 0, retido: false }], sentido: 'SAIDA', destino: 'RECEITA' };
     const linha = (it) => `<tr class="it">
@@ -1680,21 +1764,26 @@ async function telaCompras() {
   if (!est.ate) { const [a, m] = mesAtual().split('-').map(Number); est.ate = `${mesAtual()}-${String(new Date(a, m, 0).getDate()).padStart(2, '0')}`; }
   const { base, tiposEntrada, opcTipo, opcCat } = await dadosDeEntrada();
   const d = await api('GET', `${base}/compras?de=${est.de}&ate=${est.ate}${est.q ? '&q=' + encodeURIComponent(est.q) : ''}`);
+  const pg = paginar(d.compras, est.pg || 1);
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Compras</h1><p class="sutil">Lance as notas de entrada e consulte o que já foi lançado. Importe o XML da NF-e (cada nota abre com o resumo e o parcelamento para conferir) ou lance a compra manualmente. Para buscar as notas emitidas contra o CNPJ, use <a href="#/nfe-sefaz">Buscar NF-e (SEFAZ)</a>.</p></div>
-      <div><button class="primario" id="imp-xml">Importar XML da NF-e</button><input type="file" id="arq-xml" accept=".xml,text/xml,application/xml" multiple hidden>
-        <button id="nova-compra">Lançar compra manual</button></div></div>
-    <form id="busca-comp" class="grade" style="align-items:end">
-      <label class="largo">Buscar <input type="search" name="q" value="${esc(est.q)}" placeholder="Fornecedor, nº da nota, CNPJ ou chave de acesso"></label>
+    ${cabecaTela('compras', 'Compras', 'Lance as notas de entrada e consulte o que já foi lançado. Cada XML de NF-e abre com o resumo e o parcelamento para você conferir. Para buscar as notas emitidas contra o seu CNPJ, use <a href="#/nfe-sefaz">Buscar NF-e (SEFAZ)</a>.',
+      `<button class="tl-btn-ouro" id="imp-xml">${icone('tl-xml')} Importar XML da NF-e</button><input type="file" id="arq-xml" accept=".xml,text/xml,application/xml" multiple hidden>
+       <button class="tl-btn-borda" id="nova-compra">${icone('o-mais')} Lançar compra manual</button>`)}
+    ${cartoesKpi([
+      { ic: 'tl-doc', tom: 'laranja', valor: d.compras.length, rotulo: 'Notas no período' },
+      { ic: 'tl-moedas', tom: 'verde', valor: compacto(d.total), rotulo: 'Valor total das compras' },
+      { ic: 'o-predio', tom: 'neutro', valor: d.fornecedores.length ? esc(d.fornecedores[0].nome) : '—', rotulo: d.fornecedores.length ? `Maior fornecedor · ${brl(d.fornecedores[0].total)}` : 'Maior fornecedor' },
+    ])}
+    <form class="tl-filtros" id="busca-comp">
       <label>De <input type="date" name="de" value="${est.de}"></label><label>Até <input type="date" name="ate" value="${est.ate}"></label>
-      <div><button class="primario" type="submit">Buscar</button></div></form>
-    <div class="resumo">
-      <div class="cartao"><div class="sutil">Total no período</div><div class="valor">${compacto(d.total)}</div><div class="dica">${d.compras.length} nota(s)</div></div>
-      <div class="cartao"><div class="sutil">Maiores fornecedores</div>${d.fornecedores.length ? d.fornecedores.map((f) => `<div class="dica">${esc(f.nome)} · <strong>${brl(f.total)}</strong></div>`).join('') : '<div class="dica">—</div>'}</div>
-    </div>
-    ${d.compras.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Emissão</th><th>Fornecedor</th><th>NF</th><th class="num">Itens</th><th class="num">Total</th><th>Despesas</th><th></th></tr></thead><tbody>${d.compras.map(linhaCompra).join('')}</tbody></table></div>`
-      : '<div class="vazio">Nenhuma nota encontrada neste período e busca.</div>'}`;
-  $('#busca-comp').onsubmit = (e) => { e.preventDefault(); const f = e.target; Object.assign(est, { q: f.q.value.trim(), de: f.de.value || '0000-01-01', ate: f.ate.value || '9999-12-31' }); telaCompras(); };
+      <label class="busca">Buscar <input type="search" name="q" value="${esc(est.q)}" placeholder="Fornecedor, nº da nota, CNPJ ou chave de acesso"></label>
+      <span class="tl-acoes"><button type="button" id="comp-limpar">${icone('tl-limpar')} Limpar</button><button type="submit" class="tl-btn-ouro">${icone('o-busca')} Buscar</button></span></form>
+    ${d.compras.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Emissão</th><th>Fornecedor</th><th>NF</th><th class="num">Itens</th><th class="num">Total</th><th>Despesas</th><th></th></tr></thead><tbody>${pg.itens.map(linhaCompra).join('')}</tbody></table></div>${pg.html}</div>`
+      : vazioTela('compras', 'Nenhuma nota encontrada', 'Não há compras lançadas neste período e busca. Importe o XML de uma NF-e ou lance uma compra manualmente.')}
+    ${dicaTela('Dica', 'Importe vários XMLs de uma vez: cada nota abre para conferência antes de entrar.')}`;
+  conteudo.querySelectorAll('.tl-pag [data-pg]').forEach((b) => (b.onclick = () => { est.pg = Number(b.dataset.pg); telaCompras(); }));
+  $('#comp-limpar').onclick = () => { Object.assign(est, { q: '', de: mesAtual() + '-01', ate: '', pg: 1 }); telaCompras(); };
+  $('#busca-comp').onsubmit = (e) => { e.preventDefault(); const f = e.target; Object.assign(est, { q: f.q.value.trim(), de: f.de.value || '0000-01-01', ate: f.ate.value || '9999-12-31', pg: 1 }); telaCompras(); };
   conteudo.querySelectorAll('[data-ver]').forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); detalheCompra(Number(b.dataset.ver), telaCompras); }));
   conteudo.querySelectorAll('tr[data-c]').forEach((tr) => (tr.onclick = () => detalheCompra(Number(tr.dataset.c), telaCompras)));
   $('#nova-compra').onclick = () => { location.hash = '#/compra-nova'; };
@@ -1837,7 +1926,8 @@ async function telaCompraManual() {
 /** Busca das NF-e emitidas contra o CNPJ direto na SEFAZ; a importação passa pela conferência nota a nota. */
 async function telaNfeSefaz() {
   const opc = await dadosDeEntrada();
-  conteudo.innerHTML = `<div class="topo"><div><h1>Buscar NF-e (SEFAZ)</h1><p class="sutil">Notas fiscais emitidas contra o CNPJ desta empresa, direto do Ambiente Nacional. Ao importar, cada nota abre com o resumo e o parcelamento para você conferir. As notas importadas ficam em <a href="#/compras">Notas de compra</a>.</p></div></div>
+  conteudo.innerHTML = `${cabecaTela('tl-doc', 'Buscar NF-e (SEFAZ)', 'Notas fiscais emitidas contra o CNPJ desta empresa, direto do Ambiente Nacional. Ao importar, cada nota abre com o resumo e o parcelamento para você conferir.')}
+    ${dicaTela('Para onde vão as notas?', 'As notas importadas ficam em Compras. Ao buscar, o sistema registra a <strong>Ciência da Operação</strong> de cada nota nova, que libera o XML completo na SEFAZ.', '<a href="#/compras">Ir para Compras →</a>')}
     <div id="painel-sefaz"></div>`;
   painelSefaz(opc.base, opc);
 }
@@ -1859,7 +1949,7 @@ async function painelSefaz(base, opc) {
   try { d = await api('GET', `${url}${painelSefaz.todas ? '?todas=1' : ''}`); } catch (e) { el.innerHTML = `<p class="dica erro">${esc(mensagemErro(e))}</p>`; return; }
   if (!$('#painel-sefaz')) return; // usuário trocou de tela
   if (!d.temCertificado) {
-    el.innerHTML = `<div class="cartao sefaz"><h2>Notas na SEFAZ</h2><p class="dica">Para o sistema buscar sozinho as NF-e emitidas contra o CNPJ desta empresa, cadastre o certificado digital A1 em <a href="#/empresas">Empresas</a>.</p></div>`;
+    el.innerHTML = vazioTela('tl-doc', 'Certificado digital necessário', 'Para o sistema buscar sozinho as NF-e emitidas contra o CNPJ desta empresa, cadastre o certificado digital A1 em Empresas.', '<a class="tl-btn-ouro" href="#/empresas">Ir para Empresas</a>');
     return;
   }
   const situacao = !d.iniciada
@@ -1877,16 +1967,23 @@ async function painelSefaz(base, opc) {
       <td class="num">${n.valor != null ? brl(n.valor) : '—'}</td>
       <td><span class="carimbo ${n.status}" ${n.ciencia_erro ? `title="${esc(n.ciencia_erro)}"` : ''}>${SIT_SEFAZ[n.status]}</span>${n.status === 'CIENCIA_RECUSADA' ? `<br><span class="dica">${esc(n.ciencia_erro)}</span>` : ''}</td>
       <td class="acoes-linha">${n.status === 'PRONTA' ? `<button class="primario" data-imp="${n.chave}">Importar</button>` : ''}${n.compra_id ? `<button data-abrir="${n.compra_id}">Abrir compra</button>` : ''}${n.tem_xml ? `<button data-xml="${n.chave}">XML</button>` : ''}${n.status === 'CIENCIA_RECUSADA' ? `<button data-ciencia="${n.chave}">Reenviar ciência</button>` : ''}${!n.compra_id ? `<button data-ocultar="${n.chave}" data-v="${n.oculta ? 0 : 1}" title="${n.oculta ? 'Voltar a mostrar' : 'Esconder esta nota (ex.: não é compra da empresa)'}">${n.oculta ? 'Mostrar' : 'Ocultar'}</button>` : ''}</td></tr>`;
-  el.innerHTML = `<div class="cartao sefaz">
-    <div class="sefaz-topo"><div><h2>Notas na SEFAZ</h2><p class="dica">${situacao}</p></div>
-      <div class="sefaz-acoes"><button class="primario" id="sefaz-buscar">Buscar agora</button><button id="sefaz-chave">Buscar pela chave</button>
+  const nPorStatus = (st) => d.notas.filter((n) => n.status === st).length;
+  el.innerHTML = `<div class="sefaz">
+    ${cartoesKpi([
+      { ic: 'tl-check', tom: 'verde', valor: selecionaveis.length, rotulo: 'Prontas para importar' },
+      { ic: 'tl-relogio', tom: 'laranja', valor: d.contagem.aguardando ?? 0, rotulo: 'Aguardando XML' },
+      { ic: 'tl-doc', tom: 'neutro', valor: nPorStatus('IMPORTADA'), rotulo: 'Já importadas' },
+      { ic: 'tl-alerta', tom: (nPorStatus('CIENCIA_RECUSADA') + (d.contagem.canceladasImportadas ?? 0)) ? 'vermelho' : 'neutro', valor: nPorStatus('CIENCIA_RECUSADA') + (d.contagem.canceladasImportadas ?? 0), rotulo: 'Pedem atenção' },
+    ])}
+    <div class="sefaz-topo tl-filtros"><div><p class="dica">${situacao}</p></div>
+      <div class="sefaz-acoes"><button class="tl-btn-ouro" id="sefaz-buscar">${icone('o-busca')} Buscar agora</button><button class="tl-btn-borda" id="sefaz-chave">Buscar pela chave</button>
         <label class="check"><input type="checkbox" id="sefaz-auto" ${d.automatica ? 'checked' : ''}> Buscar automaticamente</label>
         ${adm ? '<button id="sefaz-conexao" title="Cadeia de certificados ICP-Brasil">Conexão com a SEFAZ</button>' : ''}</div></div>
     ${erroRecente ? `<div class="banner perigo">Erro na última busca (${dataHoraBr(erroRecente.quando)}): ${esc(erroRecente.mensagem)}</div>` : ''}
     ${d.contagem.canceladasImportadas ? `<div class="banner perigo"><strong>Atenção:</strong> ${d.contagem.canceladasImportadas} nota(s) já importada(s) em Compras foi(ram) <strong>cancelada(s) pelo fornecedor</strong>. Confira a compra e as despesas lançadas.</div>` : ''}
-    ${d.notas.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>${selecionaveis.length ? '<input type="checkbox" id="sel-todas-sefaz" aria-label="Selecionar todas">' : ''}</th><th>Emissão</th><th>Fornecedor</th><th>NF</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead>
-      <tbody>${d.notas.map(linha).join('')}</tbody></table></div>`
-      : `<p class="dica">${d.iniciada ? 'Nenhuma nota pendente de importação.' : ''}</p>`}
+    ${d.notas.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>${selecionaveis.length ? '<input type="checkbox" id="sel-todas-sefaz" aria-label="Selecionar todas">' : ''}</th><th>Emissão</th><th>Fornecedor</th><th>NF</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${d.notas.map(linha).join('')}</tbody></table></div></div>`
+      : vazioTela('tl-doc', d.iniciada ? 'Nenhuma nota pendente de importação' : 'Realize uma busca para visualizar as notas', d.iniciada ? 'Quando o fornecedor emitir uma nota contra o seu CNPJ, ela aparece aqui depois da próxima busca.' : 'Clique em "Pesquisar NF-e" para buscar as notas emitidas contra o CNPJ desta empresa.', `<button class="tl-btn-ouro" id="vz-buscar">${icone('o-busca')} Pesquisar NF-e</button>`)}
     <div class="acoes">${selecionaveis.length ? `<button class="primario" id="sefaz-importar" disabled>Importar selecionadas</button>` : ''}
       <button id="sefaz-todas">${painelSefaz.todas ? 'Mostrar só as pendentes' : 'Mostrar também importadas e ocultas'}</button>
       ${d.contagem.aguardando ? `<span class="dica">${d.contagem.aguardando} nota(s) aguardando o XML completo: ele chega numa próxima busca (a SEFAZ libera depois da ciência).</span>` : ''}</div>
@@ -1916,6 +2013,7 @@ async function painelSefaz(base, opc) {
     try { await api('PUT', `${url}/config`, { automatica: e.target.checked }); aviso(e.target.checked ? 'Busca automática ligada: o sistema consulta a SEFAZ sozinho, respeitando o intervalo de 1 hora.' : 'Busca automática desligada.'); }
     catch (err) { e.target.checked = !e.target.checked; aviso(mensagemErro(err)); }
   };
+  $('#vz-buscar')?.addEventListener('click', () => $('#sefaz-buscar').click());
   $('#sefaz-conexao')?.addEventListener('click', () => dialogoConexaoSefaz(recarregar));
   $('#sefaz-buscar').onclick = async (e) => {
     const b = e.target; b.disabled = true; b.textContent = 'Buscando…';
@@ -2101,22 +2199,22 @@ async function telaRelatorios(aba) {
   const clientes = await api('GET', `/api/empresas/${estado.empresaId}/tomadores`).catch(() => []);
   const fmtCel = (v, t) => (v == null || v === '' ? '' : t === 'moeda' ? brl(v) : t === 'data' ? dataBr(v) : esc(String(v)));
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Relatórios</h1><p class="sutil">A nota e o boleto têm datas diferentes (emissão, vencimento, pagamento). Cada relatório diz qual data usa no filtro e mostra as outras nas colunas.</p></div></div>
+    ${cabecaTela('relatorios', 'Relatórios', 'A nota e o boleto têm datas diferentes (emissão, vencimento, pagamento). Cada relatório diz qual data usa no filtro e mostra as outras nas colunas.')}
     <nav class="abas" aria-label="Relatórios"><a href="#/relatorios" class="ativo">Relatórios</a><a href="#/relatorios/documentacao">Documentação</a></nav>
     <div class="rel-layout">
     <nav class="rel-grupos" aria-label="Tipos de relatório">${GRUPOS_REL.filter((g) => cat.some((c) => c.grupo === g)).map((g) => `<details class="grupo" ${cat.some((c) => c.grupo === g && c.id === est.rel) ? 'open' : ''}><summary>${esc(g)} <span class="dica">${cat.filter((c) => c.grupo === g).length}</span></summary>
       ${cat.filter((c) => c.grupo === g).map((c) => `<a href="#" data-rel="${c.id}" class="${c.id === est.rel ? 'ativo' : ''}">${esc(c.titulo)}</a>`).join('')}</details>`).join('')}</nav>
     <div class="rel-corpo">
-    <form id="form-rel" class="filtros grade">
+    <form id="form-rel" class="tl-filtros">
       <input type="hidden" name="rel" value="${esc(est.rel)}">
-      <div class="largo"><strong id="tit-rel"></strong><span class="dica" id="desc-rel" style="display:block"></span></div>
+      <div style="flex:1 1 100%"><strong id="tit-rel"></strong><span class="dica" id="desc-rel" style="display:block"></span></div>
       <label>De <input type="date" name="de" required value="${est.de}"></label>
       <label>Até <input type="date" name="ate" required value="${est.ate}"></label>
       <label>Cliente <select name="tomadorId"><option value="">Todos</option>${clientes.map((c) => `<option value="${c.id}" ${String(c.id) === String(est.tomadorId) ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></label>
       <label id="lbl-sit">Situação <select name="situacao"><option value="">Todas</option><option>Vencido</option><option>A vencer</option></select></label>
-      <div class="acoes"><button class="primario" type="submit">Gerar</button> <button type="button" id="rel-csv">Excel (CSV)</button> <button type="button" id="rel-pdf">PDF</button></div>
+      <span class="tl-acoes"><button type="button" class="tl-btn-borda" id="rel-csv">${icone('tl-exportar')} Excel (CSV)</button><button type="button" class="tl-btn-borda" id="rel-pdf">${icone('tl-exportar')} PDF</button><button class="tl-btn-ouro" type="submit">${icone('tl-filtro')} Gerar</button></span>
     </form>
-    <div id="res-rel"><div class="vazio">Escolha o relatório ao lado, ajuste o período e clique em Gerar.</div></div>
+    <div id="res-rel">${vazioTela('relatorios', 'Escolha um relatório', 'Selecione o relatório ao lado, ajuste o período e clique em Gerar.')}</div>
     </div></div>`;
   const f = $('#form-rel');
   const atual = () => ({ rel: f.rel.value, de: f.de.value, ate: f.ate.value, tomadorId: f.tomadorId.value, situacao: f.situacao.value });
@@ -2125,7 +2223,7 @@ async function telaRelatorios(aba) {
   conteudo.querySelectorAll('[data-rel]').forEach((a) => (a.onclick = (ev) => {
     ev.preventDefault(); f.rel.value = a.dataset.rel; est.rel = a.dataset.rel;
     conteudo.querySelectorAll('[data-rel]').forEach((x) => x.classList.toggle('ativo', x === a));
-    ajustar(); $('#res-rel').innerHTML = '<div class="vazio">Ajuste o período e clique em Gerar.</div>';
+    ajustar(); $('#res-rel').innerHTML = vazioTela('relatorios', 'Pronto para gerar', 'Ajuste o período e clique em Gerar.');
   }));
   const qs = (formato) => { const a = atual(); return new URLSearchParams({ de: a.de, ate: a.ate, formato, ...(a.tomadorId && { tomadorId: a.tomadorId }), ...(a.situacao && { situacao: a.situacao }) }).toString(); };
   f.onsubmit = async (ev) => {
@@ -2134,10 +2232,10 @@ async function telaRelatorios(aba) {
     try {
       const r = await api('GET', `/api/empresas/${estado.empresaId}/relatorios/${est.rel}?${qs('json')}`);
       box.innerHTML = `<h2>${esc(r.titulo)}</h2><p class="sutil">${esc(r.subtitulo)} · ${r.linhas.filter((l) => !l._subtotal).length} registro(s)</p>
-        ${r.linhas.length ? `<div class="rolagem"><table class="tabela"><thead><tr>${r.colunas.map((c) => `<th class="${c.tipo === 'moeda' || c.tipo === 'inteiro' ? 'num' : ''}">${esc(c.nome)}</th>`).join('')}</tr></thead><tbody>
+        ${r.linhas.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr>${r.colunas.map((c) => `<th class="${c.tipo === 'moeda' || c.tipo === 'inteiro' ? 'num' : ''}">${esc(c.nome)}</th>`).join('')}</tr></thead><tbody>
           ${r.linhas.map((l) => `<tr${l._subtotal ? ' class="rel-subtotal"' : ''}>${r.colunas.map((c) => `<td class="${c.tipo === 'moeda' || c.tipo === 'inteiro' ? 'num' : ''}">${fmtCel(l[c.k], c.tipo)}</td>`).join('')}</tr>`).join('')}
           ${r.colunas.some((c) => c.soma) ? `<tr><td><strong>TOTAL</strong></td>${r.colunas.slice(1).map((c) => `<td class="num"><strong>${c.soma ? fmtCel(r.totais[c.k], c.tipo) : ''}</strong></td>`).join('')}</tr>` : ''}
-          </tbody></table></div>` : '<div class="vazio">Nenhum registro neste período.</div>'}`;
+          </tbody></table></div></div>` : vazioTela('relatorios', 'Nenhum registro neste período', 'Não há dados para o relatório e os filtros escolhidos. Tente ampliar o período.')}`;
     } catch (e) { box.innerHTML = `<p class="erro">${esc(mensagemErro(e))}</p>`; }
   };
   $('#rel-csv').onclick = () => { Object.assign(est, atual()); baixar(`/api/empresas/${estado.empresaId}/relatorios/${est.rel}?${qs('csv')}`, `${est.rel}.csv`); };
@@ -2156,22 +2254,23 @@ async function telaAgenda() {
   const totalProntas = prontas.reduce((t, i) => t + i.valor, 0);
   const acaoTxt = (m) => ({ NOTA: 'nota', NOTA_BOLETO: 'nota + boleto', BOLETO: 'boleto' }[m] ?? m);
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Emissão automática</h1><p class="sutil">Todo mês, na data de cada cliente, o sistema deixa a emissão pronta com o serviço padrão e o valor cadastrados. Você confere e confirma; nada é emitido sem a sua confirmação.</p></div>
-      <div><label>Mês <input type="month" id="mes-ag" value="${mes}"></label>
-        <button class="primario" id="todas" ${prontas.length ? '' : 'disabled'}>Emitir ${prontas.length ? prontas.length + ' pronta(s)' : 'prontas'}</button></div></div>
-    ${porCliente.size ? `<div class="resumo">
-      <div class="cartao"><div class="sutil">Prontas para confirmar</div><div class="valor" style="color:${COR.laranja}">${d.resumo.prontas}</div><div class="dica">${prontas.length ? brl(totalProntas) + ' em serviços' : 'nada pendente'}</div></div>
-      <div class="cartao"><div class="sutil">Agendadas</div><div class="valor">${d.resumo.agendadas}</div><div class="dica">ainda não chegou a data</div></div>
-      <div class="cartao"><div class="sutil">Com erro</div><div class="valor" style="color:${d.resumo.erros ? COR.vermelho : COR.verde}">${d.resumo.erros}</div></div>
-    </div>
-    <div class="rolagem"><table class="tabela"><thead><tr><th>Cliente</th><th>Serviço</th><th class="num">Valor</th><th>O que gera</th><th>Data</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${cabecaTela('agenda', 'Emissão automática', 'Configure e agende a emissão de notas fiscais para seus clientes, de forma prática e eficiente. Todo mês, na data de cada cliente, o sistema deixa a emissão pronta com o serviço padrão e o valor cadastrados; nada é emitido sem a sua confirmação.',
+      `<div class="tl-mes"><span class="orc-ico">${icone('calendario')}</span><label>Mês de referência <input type="month" id="mes-ag" value="${mes}"></label></div>
+       <button class="tl-btn-ouro" id="todas" ${prontas.length ? '' : 'disabled'}>${icone('seta')} Emitir ${prontas.length ? prontas.length + ' pronta(s)' : 'prontas'}</button>`)}
+    ${porCliente.size ? `${cartoesKpi([
+      { ic: 'tl-check', tom: 'verde', valor: d.resumo.prontas, rotulo: `Prontas para confirmar${prontas.length ? ' · ' + brl(totalProntas) : ''}` },
+      { ic: 'tl-relogio', tom: 'laranja', valor: d.resumo.agendadas, rotulo: 'Agendadas (ainda não chegou a data)' },
+      { ic: 'tl-alerta', tom: d.resumo.erros ? 'vermelho' : 'neutro', valor: d.resumo.erros, rotulo: 'Com erro' },
+    ])}
+    <div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Cliente</th><th>Serviço</th><th class="num">Valor</th><th>O que gera</th><th>Data</th><th>Situação</th><th></th></tr></thead><tbody>
     ${[...porCliente.values()].map((itens) => itens.map((i, k) => `<tr>
       ${k === 0 ? `<td rowspan="${itens.length}"><strong>${esc(i.tomador)}</strong><br>${i.agenda_ativa ? `<span class="dica">todo dia ${i.agenda_dia}</span> ` : ''}<button data-cfg="${i.tomador_id}">${i.agenda_ativa ? 'Alterar' : 'Agendar'}</button></td>` : ''}
       <td>${esc(i.servico)}</td><td class="num">${brl(i.valor)}</td><td>${acaoTxt(i.modo)}</td><td>${i.data_prevista ? dataBr(i.data_prevista) : '—'}</td>
       <td><span class="${STATUS_AGENDA[i.status][1]}">${STATUS_AGENDA[i.status][0]}</span>${i.mensagem && i.status !== 'PULADA' ? `<br><span class="dica">${esc(i.mensagem)}</span>` : ''}</td>
       <td class="acoes-linha">${i.status === 'PRONTA' || i.status === 'ERRO' ? `<button data-exe="${i.tomador_id}:${i.servico_id}">${i.status === 'ERRO' ? 'Tentar de novo' : 'Emitir'}</button> <button data-pul="${i.tomador_id}:${i.servico_id}">Pular</button>` : i.status === 'PULADA' ? `<button data-des="${i.tomador_id}:${i.servico_id}">Desfazer</button>` : i.nota_id ? `<a href="#/nota/${i.nota_id}">Ver nota</a>` : ''}</td></tr>`).join('')).join('')}
-    </tbody></table></div>`
-    : '<div class="vazio">Nenhum cliente com serviço padrão. Abra um cliente, cadastre o serviço e o valor na aba <strong>Serviços padrão</strong> e volte aqui para agendar. <a href="#/tomadores">Ir para Clientes</a></div>'}`;
+    </tbody></table></div></div>`
+    : `${dicaTela('Automatize sua rotina', 'Nenhum cliente com serviço padrão. Abra um cliente, cadastre o serviço e o valor na aba <strong>Serviços padrão</strong> e volte aqui para agendar.', '<a href="#/tomadores">Ir para Clientes →</a>')}
+      ${vazioTela('agenda', 'Pronto para automatizar?', 'Após configurar seus clientes e serviços, você poderá agendar a emissão automática de notas fiscais.', `<a class="tl-btn-ouro" href="#/tomadores">${icone('agenda')} Ir para Clientes</a>`)}`}`;
   $('#mes-ag').onchange = (ev) => { telaAgenda.mes = ev.target.value || mesAtual(); telaAgenda(); };
   const recarregar = async () => { const y = window.scrollY; await telaAgenda(); window.scrollTo(0, y); };
   const par = (v) => v.split(':').map(Number);
@@ -2222,33 +2321,33 @@ async function telaExtrato() {
   const tabCat = (titulo, l, cor) => `<div class="cartao"><h2 style="margin-top:0">${titulo} <span class="sutil">· ${brl(soma(l))}</span></h2>
     ${l.length ? `<table class="tabela"><tbody>${agrupar(l).map(([c, v]) => `<tr><td>${esc(c)}</td><td class="num" style="color:${cor}">${brl(v)}</td><td class="num sutil">${Math.round(v / soma(l) * 100)}%</td></tr>`).join('')}</tbody></table>` : '<p class="sutil">Nada neste mês.</p>'}</div>`;
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Extrato e conciliação</h1><p class="sutil">Importe o extrato bancário em PDF, classifique entradas e saídas e ligue os recebimentos aos boletos. As <strong>saídas classificadas</strong> são lançadas automaticamente em <a href="#/despesas">Despesas e balanço</a> (exceto “Cartão de crédito” e “Transferências”); entradas como “Outras receitas” entram nas receitas.</p></div>
-      <div><label>Mês ${d.meses.length ? `<select id="mes-ext">${[...new Set([mes, ...d.meses])].sort().reverse().map((m) => `<option value="${m}" ${m === mes ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select>` : `<input type="month" id="mes-ext" value="${mes}">`}</label>
-        ${coraExt?.ativa ? '<button class="primario" id="cora-ext">Sincronizar com a Cora</button>' : ''}
-        <button ${coraExt?.ativa ? '' : 'class="primario"'} id="imp-ext">Importar extrato (PDF)</button><input type="file" id="arq-ext" accept="application/pdf,.pdf" hidden></div></div>
+    ${cabecaTela('extrato', 'Extrato e conciliação', 'Importe o extrato bancário em PDF, classifique entradas e saídas e ligue os recebimentos aos boletos. As <strong>saídas classificadas</strong> são lançadas automaticamente em <a href="#/despesas">Despesas e balanço</a> (exceto “Cartão de crédito” e “Transferências”); entradas como “Outras receitas” entram nas receitas.',
+      `<div class="tl-mes"><span class="orc-ico">${icone('calendario')}</span><label>Mês ${d.meses.length ? `<select id="mes-ext">${[...new Set([mes, ...d.meses])].sort().reverse().map((m) => `<option value="${m}" ${m === mes ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select>` : `<input type="month" id="mes-ext" value="${mes}">`}</label></div>
+       ${coraExt?.ativa ? `<button class="tl-btn-borda" id="cora-ext">${icone('tl-limpar')} Sincronizar com a Cora</button>` : ''}
+       <button class="tl-btn-ouro" id="imp-ext">${icone('tl-baixar')} Importar extrato (PDF)</button><input type="file" id="arq-ext" accept="application/pdf,.pdf" hidden>`)}
     ${coraExt?.ativa && coraExt.saldo != null ? `<p class="sutil">Saldo na Cora: <strong>${brl(coraExt.saldo)}</strong>${coraExt.saldo_em ? ` (atualizado em ${coraExt.saldo_em.slice(8, 10)}/${coraExt.saldo_em.slice(5, 7)} às ${coraExt.saldo_em.slice(11, 16)} UTC)` : ''}.</p>` : ''}
     <div id="res-import"></div>
-    ${d.lancamentos.length ? `<div class="resumo">
-      <div class="cartao"><div class="sutil">Entradas</div><div class="valor" style="color:${COR.verde}">${compacto(d.entradas)}</div><div class="dica">${ent.length} lançamento(s)</div></div>
-      <div class="cartao"><div class="sutil">Saídas</div><div class="valor" style="color:${COR.vermelho}">${compacto(d.saidas)}</div><div class="dica">${sai.length} lançamento(s)</div></div>
-      <div class="cartao"><div class="sutil">Resultado do mês</div><div class="valor" style="color:${d.resultado < 0 ? COR.vermelho : COR.verde}">${compacto(d.resultado)}</div></div>
-      <div class="cartao"><div class="sutil">Sem classificação</div><div class="valor" style="color:${d.semClassificacao ? COR.laranja : COR.verde}">${d.semClassificacao}</div><div class="dica">${d.semClassificacao ? 'classifique para fechar o balanço' : 'tudo classificado'}</div></div>
-    </div>
+    ${d.lancamentos.length ? `${cartoesKpi([
+      { ic: 'tl-moedas', tom: 'verde', valor: compacto(d.entradas), rotulo: `Entradas · ${ent.length} lançamento(s)` },
+      { ic: 'tl-doc', tom: 'vermelho', valor: compacto(d.saidas), rotulo: `Saídas · ${sai.length} lançamento(s)` },
+      { ic: 'tl-check', tom: d.resultado < 0 ? 'vermelho' : 'verde', valor: compacto(d.resultado), rotulo: 'Resultado do mês' },
+      { ic: 'tl-alerta', tom: d.semClassificacao ? 'laranja' : 'verde', valor: d.semClassificacao, rotulo: d.semClassificacao ? 'Sem classificação · classifique para fechar o balanço' : 'Sem classificação · tudo classificado' },
+    ])}
     <div class="duas-colunas">${tabCat('Entradas por categoria', ent, COR.verde)}${tabCat('Saídas por categoria', sai, COR.vermelho)}</div>
     <div class="topo"><h2>Lançamentos de ${nomeMes(mes)}</h2>
       <div><nav class="abas" id="filtros-ext">${[['todos', 'Todos'], ['sem', `Sem classificação (${d.semClassificacao})`], ['entradas', 'Entradas'], ['saidas', 'Saídas']].map(([k, n]) => `<a href="#" data-f="${k}" class="${k === filtro ? 'ativo' : ''}">${n}</a>`).join('')}</nav></div></div>
     <label class="sutil" style="flex-direction:row;display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="semelhantes" style="width:auto" ${semelhantes ? 'checked' : ''}> Ao classificar, aplicar também aos lançamentos parecidos (mesma descrição) e lembrar nas próximas importações</label>
     <datalist id="cat-ent">${d.categorias.entradas.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
     <datalist id="cat-sai">${d.categorias.saidas.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
-    <div class="rolagem"><table class="tabela"><thead><tr><th>Data</th><th>Descrição</th><th class="num">Valor</th><th>Categoria</th><th>Boleto</th></tr></thead><tbody>
+    <div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Data</th><th>Descrição</th><th class="num">Valor</th><th>Categoria</th><th>Boleto</th></tr></thead><tbody>
       ${vis.map((l) => `<tr><td>${dataBr(l.data)}</td><td>${esc(l.descricao)}${l.documento ? ` <span class="sutil">${esc(l.documento)}</span>` : ''}</td>
         <td class="num" style="color:${l.valor < 0 ? COR.vermelho : COR.verde}">${brl(l.valor)}</td>
         <td><input data-cat="${l.id}" list="${l.valor > 0 ? 'cat-ent' : 'cat-sai'}" value="${esc(l.categoria ?? '')}" placeholder="Classificar…" ${l.categoria ? '' : 'style="border-color:' + (COR.laranja) + '"'}></td>
         <td>${l.cobranca_id ? `<span title="Boleto com vencimento em ${dataBr(l.boleto_venc)}">✔ ${esc(l.tomador ?? 'boleto')}</span> <a href="#" data-des="${l.id}">desfazer</a>` : l.valor > 0 ? `<button data-bol="${l.id}">Ligar a boleto</button>` : l.despesa_ligada_id ? `<span title="Despesa lançada em Compras ou Despesas">✔ ${esc(l.despesa_ligada ?? 'despesa')}</span> <a href="#" data-desd="${l.id}">desfazer</a>` : `<button data-desp="${l.id}">Ligar a despesa</button>`}</td></tr>`).join('') || '<tr><td colspan="5" class="sutil">Nenhum lançamento neste filtro.</td></tr>'}
-    </tbody></table></div>
+    </tbody></table></div></div>
     <h3>Importações</h3>
     <table class="tabela"><tbody>${d.importacoes.map((i) => `<tr><td>${esc(i.arquivo)}</td><td>${i.periodo_ini ? dataBr(i.periodo_ini) + ' a ' + dataBr(i.periodo_fim) : ''}</td><td class="num">${i.qtd} lançamentos</td><td class="num">${podeExcluirRegistros() ? `<a href="#" data-exi="${i.id}">excluir</a>` : ''}</td></tr>`).join('')}</tbody></table>`
-    : '<div class="vazio">Nenhum lançamento neste mês. Importe o extrato da conta corrente em PDF, exportado do internet banking.</div>'}`;
+    : vazioTela('extrato', 'Nenhum lançamento neste mês', 'Importe o extrato da conta corrente em PDF, exportado do internet banking.', `<button class="tl-btn-ouro" id="vz-ext">${icone('tl-baixar')} Importar extrato (PDF)</button>`)}`;
 
   $('#mes-ext').onchange = (ev) => { telaExtrato.mes = ev.target.value || mesAtual(); telaExtrato(); };
   const arq = $('#arq-ext');
@@ -2259,6 +2358,7 @@ async function telaExtrato() {
     catch (e) { aviso(mensagemErro(e)); ce.disabled = false; ce.textContent = 'Sincronizar com a Cora'; }
   };
   $('#imp-ext').onclick = () => arq.click();
+  $('#vz-ext')?.addEventListener('click', () => arq.click());
   arq.onchange = async () => {
     const f = arq.files[0]; if (!f) return;
     const box = $('#res-import'); box.innerHTML = '<p class="sutil">Lendo o extrato…</p>';
@@ -2329,31 +2429,32 @@ async function telaCartao() {
   const porCat = Object.entries(gastos.reduce((a, x) => ({ ...a, [x.categoria ?? 'Sem classificação']: (a[x.categoria ?? 'Sem classificação'] ?? 0) + x.valor }), {})).sort((a, b) => b[1] - a[1]);
   const vis = d.lancamentos.filter((l) => ({ todos: true, sem: l.valor > 0 && !l.categoria, parcel: !!l.parcela_total }[filtro]));
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Fatura do cartão</h1><p class="sutil">Importe a fatura do cartão de crédito em PDF, classifique os gastos e eles entram em <a href="#/despesas">Despesas e balanço</a> como “Crédito”, no mês do vencimento da fatura. O pagamento da fatura no extrato (“Cartão de crédito”) não é contado de novo.</p></div>
-      <div><label>Mês do vencimento ${d.meses.length ? `<select id="mes-car">${[...new Set([mes, ...d.meses])].sort().reverse().map((m) => `<option value="${m}" ${m === mes ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select>` : `<input type="month" id="mes-car" value="${mes}">`}</label>
-        <button class="primario" id="imp-car">Importar fatura (PDF)</button><input type="file" id="arq-car" accept="application/pdf,.pdf" hidden></div></div>
+    ${cabecaTela('cartao', 'Fatura do cartão', 'Importe a fatura do cartão de crédito em PDF, classifique os gastos e eles entram em <a href="#/despesas">Despesas e balanço</a> como “Crédito”, no mês do vencimento da fatura. O pagamento da fatura no extrato (“Cartão de crédito”) não é contado de novo.',
+      `<div class="tl-mes"><span class="orc-ico">${icone('calendario')}</span><label>Mês do vencimento ${d.meses.length ? `<select id="mes-car">${[...new Set([mes, ...d.meses])].sort().reverse().map((m) => `<option value="${m}" ${m === mes ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select>` : `<input type="month" id="mes-car" value="${mes}">`}</label></div>
+       <button class="tl-btn-ouro" id="imp-car">${icone('tl-baixar')} Importar fatura (PDF)</button><input type="file" id="arq-car" accept="application/pdf,.pdf" hidden>`)}
     <div id="res-car"></div>
-    ${d.lancamentos.length ? `<div class="resumo">
-      <div class="cartao"><div class="sutil">Gastos na fatura</div><div class="valor" style="color:${COR.vermelho}">${compacto(d.totalGastos)}</div><div class="dica">${gastos.length} lançamento(s)</div></div>
-      <div class="cartao"><div class="sutil">Total das faturas</div><div class="valor">${compacto(d.faturas.reduce((t, f) => t + (f.total_fatura ?? 0), 0))}</div><div class="dica">${d.faturas.map((f) => 'vence ' + dataBr(f.vencimento)).join(' · ')}</div></div>
-      <div class="cartao"><div class="sutil">Sem classificação</div><div class="valor" style="color:${d.semClassificacao ? COR.laranja : COR.verde}">${d.semClassificacao}</div><div class="dica">${d.semClassificacao ? 'só entram nas despesas depois de classificados' : 'tudo classificado'}</div></div>
-    </div>
+    ${d.lancamentos.length ? `${cartoesKpi([
+      { ic: 'tl-doc', tom: 'vermelho', valor: compacto(d.totalGastos), rotulo: `Gastos na fatura · ${gastos.length} lançamento(s)` },
+      { ic: 'tl-moedas', tom: 'laranja', valor: compacto(d.faturas.reduce((t, x) => t + (x.total_fatura ?? 0), 0)), rotulo: `Total das faturas · ${d.faturas.map((x) => 'vence ' + dataBr(x.vencimento)).join(' · ')}` },
+      { ic: 'tl-alerta', tom: d.semClassificacao ? 'laranja' : 'verde', valor: d.semClassificacao, rotulo: d.semClassificacao ? 'Sem classificação · só entram nas despesas depois de classificados' : 'Sem classificação · tudo classificado' },
+    ])}
     <div class="cartao"><h2 style="margin-top:0">Gastos por categoria</h2><table class="tabela"><tbody>${porCat.map(([c, v]) => `<tr><td>${esc(c)}</td><td class="num" style="color:${COR.vermelho}">${brl(v)}</td><td class="num sutil">${Math.round(v / d.totalGastos * 100)}%</td></tr>`).join('')}</tbody></table></div>
     <div class="topo"><h2>Lançamentos</h2><nav class="abas" id="filtros-car">${[['todos', 'Todos'], ['sem', `Sem classificação (${d.semClassificacao})`], ['parcel', 'Parcelados']].map(([k, n]) => `<a href="#" data-f="${k}" class="${k === filtro ? 'ativo' : ''}">${n}</a>`).join('')}</nav></div>
     <label class="sutil" style="flex-direction:row;display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="semelhantes" style="width:auto" ${semelhantes ? 'checked' : ''}> Ao classificar, aplicar também aos lançamentos parecidos e lembrar nas próximas importações</label>
     <datalist id="cat-sai">${d.categorias.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
-    <div class="rolagem"><table class="tabela"><thead><tr><th>Compra</th><th>Descrição</th><th>Cartão</th><th class="num">Valor</th><th>Categoria</th></tr></thead><tbody>
+    <div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Compra</th><th>Descrição</th><th>Cartão</th><th class="num">Valor</th><th>Categoria</th></tr></thead><tbody>
       ${vis.map((l) => `<tr><td>${dataBr(l.data)}</td><td>${esc(l.descricao)}${l.parcela_total ? ` <span class="sutil">${l.parcela_atual}/${l.parcela_total}</span>` : ''}${l.cidade ? ` <span class="dica">${esc(l.cidade)}</span>` : ''}</td>
         <td class="sutil">${l.cartao_final ? 'final ' + esc(l.cartao_final) : ''}</td>
         <td class="num" style="color:${l.valor < 0 ? COR.verde : COR.vermelho}">${brl(l.valor)}</td>
         <td>${l.valor > 0 ? `<input data-cat="${l.id}" list="cat-sai" value="${esc(l.categoria ?? '')}" placeholder="Classificar…" ${l.categoria ? '' : 'style="border-color:' + COR.laranja + '"'}>` : '<span class="dica">' + (l.tipo === 'PAGAMENTO' ? 'pagamento da fatura anterior' : 'crédito') + '</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="sutil">Nenhum lançamento neste filtro.</td></tr>'}
-    </tbody></table></div>
+    </tbody></table></div></div>
     <h3>Faturas importadas</h3>
     <table class="tabela"><tbody>${d.faturas.map((f) => `<tr><td>${esc(f.arquivo)}</td><td>vence ${dataBr(f.vencimento)}</td><td class="num">${f.total_fatura != null ? brl(f.total_fatura) : ''}</td><td class="num">${f.qtd} lançamentos</td><td class="num">${podeExcluirRegistros() ? `<a href="#" data-exf="${f.id}">excluir</a>` : ''}</td></tr>`).join('')}</tbody></table>`
-    : '<div class="vazio">Nenhuma fatura neste mês. Importe o PDF da fatura do cartão, baixado no app ou site do emissor.</div>'}`;
+    : vazioTela('cartao', 'Nenhuma fatura neste mês', 'Importe o PDF da fatura do cartão, baixado no app ou site do emissor.', `<button class="tl-btn-ouro" id="vz-car">${icone('tl-baixar')} Importar fatura (PDF)</button>`)}`;
   $('#mes-car').onchange = (ev) => { telaCartao.mes = ev.target.value || mesAtual(); telaCartao(); };
   const arq = $('#arq-car');
   $('#imp-car').onclick = () => arq.click();
+  $('#vz-car')?.addEventListener('click', () => arq.click());
   arq.onchange = async () => {
     const f = arq.files[0]; if (!f) return;
     const box = $('#res-car'); box.innerHTML = '<p class="sutil">Lendo a fatura…</p>';
@@ -2391,13 +2492,14 @@ async function telaDespesas() {
   const porCat = Object.entries(d.despesas.reduce((a, x) => ({ ...a, [x.categoria]: (a[x.categoria] ?? 0) + x.valor }), {})).sort((a, b) => b[1] - a[1]);
   const bal = fin?.balanco.at(-1);
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Despesas e balanço</h1><p class="sutil">Receitas = boletos pagos no mês (mais entradas do extrato classificadas como “Outras receitas”). Despesas = o que você lançar aqui + as saídas classificadas em Extrato e conciliação.</p></div>
-      <label>Mês <input type="month" id="mes-desp" value="${mes}"></label></div>
-    ${bal ? `<div class="resumo">
-      <div class="cartao"><div class="sutil">Receitas</div><div class="valor" style="color:${COR.verde}">${compacto(bal.receitas)}</div></div>
-      <div class="cartao"><div class="sutil">Despesas</div><div class="valor" style="color:${COR.vermelho}">${compacto(bal.despesas)}</div><div class="dica">${d.despesas.length} lançamento(s)</div></div>
-      <div class="cartao"><div class="sutil">Resultado</div><div class="valor" style="color:${bal.resultado < 0 ? COR.vermelho : COR.verde}">${compacto(bal.resultado)}</div><div class="dica">${bal.receitas ? 'margem de ' + Math.round(bal.resultado / bal.receitas * 100) + '%' : 'sem receitas no mês'}</div></div>
-    </div>
+    ${cabecaTela('despesas', 'Despesas e balanço', 'Receitas = boletos pagos no mês (mais entradas do extrato classificadas como “Outras receitas”). Despesas = o que você lançar aqui + as saídas classificadas em Extrato e conciliação.',
+      `<div class="tl-mes"><span class="orc-ico">${icone('calendario')}</span><label>Mês <input type="month" id="mes-desp" value="${mes}"></label></div>
+       <button class="tl-btn-borda" id="cats">Categorias</button><button class="tl-btn-ouro" id="nova-desp">${icone('o-mais')} Lançar despesa</button>`)}
+    ${bal ? `${cartoesKpi([
+      { ic: 'tl-moedas', tom: 'verde', valor: compacto(bal.receitas), rotulo: 'Receitas do mês' },
+      { ic: 'tl-doc', tom: 'vermelho', valor: compacto(bal.despesas), rotulo: `Despesas · ${d.despesas.length} lançamento(s)` },
+      { ic: 'tl-check', tom: bal.resultado < 0 ? 'vermelho' : 'verde', valor: compacto(bal.resultado), rotulo: `Resultado · ${bal.receitas ? 'margem de ' + Math.round(bal.resultado / bal.receitas * 100) + '%' : 'sem receitas no mês'}` },
+    ])}
     <div class="duas-colunas">
       <div class="cartao"><h2 style="margin-top:0">Últimos 6 meses</h2>
         ${graficoBarras(fin.balanco.map((x) => x.mes), [{ cor: COR.verde, valores: fin.balanco.map((x) => x.receitas) }, { cor: COR.vermelho, valores: fin.balanco.map((x) => x.despesas) }], 5)}
@@ -2406,12 +2508,11 @@ async function telaDespesas() {
         <table class="tabela"><thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Resultado</th></tr></thead><tbody>
         ${[...fin.balanco].reverse().map((x) => `<tr><td>${nomeMes(x.mes)}</td><td class="num">${brl(x.receitas)}</td><td class="num">${brl(x.despesas)}</td><td class="num" style="color:${x.resultado < 0 ? COR.vermelho : COR.verde}">${brl(x.resultado)}</td></tr>`).join('')}</tbody></table></div>
     </div>` : ''}
-    <div class="topo"><h2>Lançamentos de ${nomeMes(mes)} <span class="sutil">· ${brl(total)}</span></h2>
-      <div><button id="cats">Categorias</button> <button class="primario" id="nova-desp">Lançar despesa</button></div></div>
-    ${d.despesas.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Pago com</th><th class="num">Valor</th><th></th></tr></thead><tbody>
+    <h2 class="tl-sub">Lançamentos de ${nomeMes(mes)} <span class="sutil">· ${brl(total)}</span></h2>
+    ${d.despesas.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Pago com</th><th class="num">Valor</th><th></th></tr></thead><tbody>
       ${d.despesas.map((x) => `<tr><td>${dataBr(x.data)}</td><td>${esc(x.categoria)}</td><td>${esc(x.descricao ?? '')}</td><td>${x.forma_pagamento ? FORMAS_PGTO[x.forma_pagamento] : '<span class="dica">—</span>'}${x.origem === 'MANUAL' && x.extrato_lancamento_id ? ' <span class="dica">· conciliada com o extrato</span>' : ''}${x.origem === 'EXTRATO' ? ' <span class="dica">· extrato</span>' : x.origem === 'CARTAO' ? ' <span class="dica">· fatura</span>' : ''}</td><td class="num">${brl(x.valor)}</td>
-        <td class="acoes-linha">${x.origem === 'EXTRATO' ? '<a href="#/extrato" class="dica">ver no extrato</a>' : x.origem === 'CARTAO' ? '<a href="#/cartao" class="dica">ver na fatura</a>' : `<button data-ed="${x.id}">Editar</button> ${podeExcluirRegistros() ? `<button data-ex="${x.id}">Excluir</button>` : ''}`}</td></tr>`).join('')}</tbody></table></div>
-      ${porCat.length > 1 ? `<p class="sutil">Por categoria: ${porCat.map(([c, v]) => `${esc(c)} ${brl(v)}`).join(' · ')}</p>` : ''}` : '<div class="vazio">Nenhuma despesa lançada neste mês.</div>'}`;
+        <td class="acoes-linha">${x.origem === 'EXTRATO' ? '<a href="#/extrato" class="dica">ver no extrato</a>' : x.origem === 'CARTAO' ? '<a href="#/cartao" class="dica">ver na fatura</a>' : `<button data-ed="${x.id}">Editar</button> ${podeExcluirRegistros() ? `<button data-ex="${x.id}">Excluir</button>` : ''}`}</td></tr>`).join('')}</tbody></table></div></div>
+      ${porCat.length > 1 ? `<p class="sutil">Por categoria: ${porCat.map(([c, v]) => `${esc(c)} ${brl(v)}`).join(' · ')}</p>` : ''}` : vazioTela('despesas', 'Nenhuma despesa neste mês', 'Lance as despesas da empresa para acompanhar o resultado do mês.', `<button class="tl-btn-ouro" id="vz-desp">${icone('o-mais')} Lançar despesa</button>`)}`;
   $('#mes-desp').onchange = (ev) => { telaDespesas.mes = ev.target.value || mesAtual(); telaDespesas(); };
   const formDespesa = (x) => abrirDialogo(`
     <form id="form-desp"><h2>${x ? 'Editar despesa' : 'Lançar despesa'}</h2>
@@ -2436,6 +2537,7 @@ async function telaDespesas() {
     };
   });
   $('#nova-desp').onclick = () => formDespesa(null);
+  $('#vz-desp')?.addEventListener('click', () => formDespesa(null));
   conteudo.querySelectorAll('[data-ed]').forEach((b) => (b.onclick = () => formDespesa(d.despesas.find((x) => x.id === Number(b.dataset.ed)))));
   conteudo.querySelectorAll('[data-ex]').forEach((b) => (b.onclick = () => abrirDialogo(`
     <form id="form-ex"><h2>Excluir despesa?</h2><p>Esta ação não pode ser desfeita.</p>
@@ -2572,25 +2674,51 @@ async function telaNotas() {
   const qs = new URLSearchParams({ empresaId: estado.empresaId, ...(f.mes && { mes: f.mes }), ...(f.status && { status: f.status }), ...(f.q && { q: f.q }) });
   const notas = await api('GET', `/api/notas?${qs}`);
   const total = notas.filter((n) => n.status === 'AUTORIZADA').reduce((a, n) => a + n.valor_servico, 0);
+  const qtd = (st) => notas.filter((n) => n.status === st).length;
+  const pend = qtd('PENDENTE') + qtd('ERRO_COMUNICACAO');
+  const pag = paginar(notas, telaNotas.pagina ?? 1);
+  telaNotas.pagina = pag.pagina;
+  const portal = empresa()?.modo_emissao === 'PORTAL';
   conteudo.innerHTML = `
-    <div class="topo">
-      <div><h1>Notas emitidas</h1><p class="sutil">${notas.length} notas · ${brl(total)} autorizados</p></div>
-      <form class="filtros" id="filtros">
-        <label>Competência <input type="month" name="mes" value="${f.mes}"></label>
-        <label>Situação <select name="status"><option value="">Todas</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${f.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-        <label>Buscar <input name="q" placeholder="Tomador ou nº da nota" value="${esc(f.q)}"></label>
-        <button type="submit">Filtrar</button>
-        ${empresa()?.modo_emissao === 'PORTAL' ? '<button type="button" class="primario" id="imp-xml">Importar nota do portal</button><input type="file" id="arq-xml" accept=".xml,text/xml" multiple hidden>' : ''}
-        <button type="button" id="lote" ${notas.some((n) => n.chave_acesso) ? '' : 'disabled'}>Baixar em lote</button>
-      </form>
+    ${cabecaTela('tl-doc', 'Notas emitidas', 'Acompanhe todas as notas fiscais emitidas pela sua empresa.', `<a class="tl-btn-ouro" href="#/emitir">${icone('o-mais')} Emitir nota</a>`)}
+    ${cartoesKpi([
+      { ic: 'tl-doc', valor: notas.length, rotulo: 'Notas emitidas' },
+      { ic: 'tl-moedas', tom: 'laranja', valor: brl(total), rotulo: 'Valor autorizado' },
+      { ic: 'tl-relogio', tom: 'laranja', valor: pend, rotulo: 'Pendentes', filtro: 'PENDENTE' },
+      { ic: 'tl-alerta', tom: 'vermelho', valor: qtd('REJEITADA'), rotulo: 'Rejeitadas', filtro: 'REJEITADA' },
+    ])}
+    <form class="tl-filtros" id="filtros">
+      <label>Competência <input type="month" name="mes" value="${f.mes}"></label>
+      <label>Situação <select name="status"><option value="">Todas</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${f.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="busca">Buscar <input name="q" placeholder="Buscar por número ou cliente…" value="${esc(f.q)}"></label>
+      <span class="tl-acoes"><button type="button" id="limpar">${icone('tl-limpar')} Limpar</button><button type="submit" class="tl-btn-ouro">${icone('tl-filtro')} Filtrar</button></span>
+    </form>
+    <div class="tl-barra">
+      ${portal ? `<button type="button" class="tl-btn-ouro" id="imp-xml">${icone('tl-baixar')} Importar nota do portal</button><input type="file" id="arq-xml" accept=".xml,text/xml" multiple hidden>` : ''}
+      <button type="button" id="lote-pdf" ${notas.some((n) => n.chave_acesso) ? '' : 'disabled'}>${icone('tl-doc')} Baixar PDF</button>
+      <button type="button" id="lote-xml" ${notas.some((n) => n.chave_acesso) ? '' : 'disabled'}>${icone('tl-xml')} Baixar XML</button>
+      <button type="button" id="lote" ${notas.some((n) => n.chave_acesso) ? '' : 'disabled'}>${icone('tl-exportar')} Exportar (ZIP)</button>
+      <span class="tl-pag-topo" style="margin-left:auto">${pag.html}</span>
     </div>
-    ${notas.length ? `<div class="rolagem"><table class="tabela"><thead><tr>
-      <th>Nº NFS-e</th><th>DPS</th><th>Competência</th><th>Tomador</th><th class="num">Valor</th><th>Situação</th></tr></thead><tbody>
-      ${notas.map((n) => `<tr class="clicavel" data-id="${n.id}"><td>${n.n_nfse ?? '—'}</td><td>${n.serie}/${n.n_dps}</td><td>${dataBr(n.competencia)}</td>
-        <td>${esc(n.tomador_nome ?? 'Não identificado')}<br><span class="dica">${esc(n.descricao.slice(0, 70))}</span></td>
-        <td class="num">${brl(n.valor_servico)}</td><td>${carimbo(n.status)}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="vazio">Nenhuma nota com esses filtros. <a href="#/emitir">Emitir nota</a></div>'}`;
-  $('#filtros').onsubmit = (ev) => { ev.preventDefault(); telaNotas.filtros = lerForm(ev.target); for (const k in telaNotas.filtros) telaNotas.filtros[k] ??= ''; telaNotas(); };
+    ${notas.length ? `<div class="tl-tabela"><div class="rolagem"><table><thead><tr>
+      <th>Cliente</th><th>Nº da nota</th><th>Competência</th><th class="num">Valor (R$)</th><th>Situação</th><th class="c">Ações</th></tr></thead><tbody>
+      ${pag.itens.map((n) => `<tr class="clicavel" data-id="${n.id}"><td><div class="tl-cli">${icone('tl-predio')}<span>${esc(n.tomador_nome ?? 'Não identificado')}<small>${esc(n.descricao.slice(0, 70))}</small></span></div></td>
+        <td>${n.n_nfse ?? '—'}<small class="dica" style="display:block">DPS ${n.serie}/${n.n_dps}</small></td><td>${dataBr(n.competencia)}</td>
+        <td class="num">${brl(n.valor_servico)}</td><td>${carimbo(n.status)}</td>
+        <td class="c"><span class="tl-ac"><a href="#/nota/${n.id}" title="Abrir a nota" aria-label="Abrir a nota">${icone('tl-olho')}</a>${n.chave_acesso ? `<button type="button" data-pdf="${n.id}" data-n="${n.n_nfse ?? n.id}" title="Baixar PDF (DANFSe)" aria-label="Baixar PDF">${icone('tl-baixar')}</button>` : ''}</span></td></tr>`).join('')}
+    </tbody></table></div>${pag.html}</div>` : vazioTela('tl-doc', 'Nenhuma nota encontrada', 'Não há notas para os filtros escolhidos. Ajuste a competência ou a busca, ou emita uma nova nota.', `<a class="tl-btn-ouro" href="#/emitir">${icone('o-mais')} Emitir nota</a>`)}
+    ${dicaTela('Precisa de ajuda?', 'Consulte o status da sua nota no manual ou fale com o suporte técnico.', '<a href="#/relatorios/documentacao">Acessar ajuda</a>')}`;
+  conteudo.querySelectorAll('[data-pg]').forEach((b) => (b.onclick = () => { telaNotas.pagina = Number(b.dataset.pg); telaNotas(); }));
+  conteudo.querySelectorAll('.kp[data-kp]').forEach((k) => (k.onclick = () => { telaNotas.filtros = { ...f, status: k.dataset.kp }; telaNotas.pagina = 1; telaNotas(); }));
+  conteudo.querySelectorAll('[data-pdf]').forEach((bt) => (bt.onclick = (ev) => { ev.stopPropagation(); baixar(`/api/notas/${bt.dataset.pdf}/danfse`, `DANFSe_${bt.dataset.n}.pdf`); }));
+  $('#limpar').onclick = () => { telaNotas.filtros = { mes: mesAtual(), status: '', q: '' }; telaNotas.pagina = 1; telaNotas(); };
+  const lotePronto = async (formato) => {
+    const p = new URLSearchParams({ empresaId: estado.empresaId, formato, ...(f.mes && { mes: f.mes }), ...(f.status && { status: f.status }) });
+    try { await baixar(`/api/notas-lote?${p}`, `notas-${f.mes || 'todas'}-${formato}.zip`); } catch (er) { aviso(mensagemErro(er)); }
+  };
+  $('#lote-pdf').onclick = () => lotePronto('pdf');
+  $('#lote-xml').onclick = () => lotePronto('xml');
+  $('#filtros').onsubmit = (ev) => { ev.preventDefault(); telaNotas.filtros = lerForm(ev.target); for (const k in telaNotas.filtros) telaNotas.filtros[k] ??= ''; telaNotas.pagina = 1; telaNotas(); };
   conteudo.querySelectorAll('tr[data-id]').forEach((tr) => (tr.onclick = () => (location.hash = `#/nota/${tr.dataset.id}`)));
   if ($('#imp-xml')) {
     $('#imp-xml').onclick = () => $('#arq-xml').click();
@@ -2975,18 +3103,31 @@ async function telaTomadores() {
   const lista = await api('GET', `/api/empresas/${estado.empresaId}/tomadores`);
   const aConferir = lista.filter((t) => t.conferir).length;
   const filtro = aConferir ? (telaTomadores.filtro ?? 'todos') : 'todos';
-  const vis = filtro === 'conferir' ? lista.filter((t) => t.conferir) : lista;
+  const q = (telaTomadores.q ?? '').trim().toLowerCase(), qd = q.replace(/\D/g, '');
+  const vis0 = filtro === 'conferir' ? lista.filter((t) => t.conferir) : lista;
+  const vis = q ? vis0.filter((t) => (t.nome ?? '').toLowerCase().includes(q) || (t.email ?? '').toLowerCase().includes(q) || (qd && String(t.documento ?? '').includes(qd))) : vis0;
+  const pg = paginar(vis, telaTomadores.pg || 1);
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Clientes (tomadores)</h1><p class="sutil">Clientes de ${esc(empresa().razao_social)}.</p></div>
-      <div><button id="imp-planilha">Importar planilha</button> <button class="primario" id="novo">Cadastrar cliente</button></div></div>
+    ${cabecaTela('tomadores', 'Clientes (tomadores)', `Cadastre e gerencie os clientes de ${esc(empresa().razao_social)}, de forma simples e organizada.`,
+      `<button class="tl-btn-borda" id="imp-planilha">Importar planilha</button> <button class="tl-btn-ouro" id="novo">Cadastrar cliente</button>`)}
+    ${cartoesKpi([
+      { ic: 'tomadores', tom: 'laranja', valor: lista.length, rotulo: 'Total de clientes' },
+      { ic: 'tl-alerta', tom: aConferir ? 'laranja' : 'verde', valor: aConferir, rotulo: aConferir ? 'Falta conferir o cadastro' : 'Cadastros conferidos' },
+      { ic: 'o-email', tom: 'neutro', valor: lista.filter((t) => !t.email).length, rotulo: 'Sem e-mail cadastrado' },
+    ])}
+    <form class="tl-filtros" id="form-busca-cli"><label class="busca">Buscar <input name="q" value="${esc(telaTomadores.q ?? '')}" placeholder="Buscar por nome, documento ou e-mail…"></label>
+      <span class="tl-acoes"><button type="button" id="cli-limpar">${icone('tl-limpar')} Limpar</button><button type="submit" class="tl-btn-ouro">${icone('o-busca')} Buscar</button></span></form>
     ${aConferir ? `<nav class="abas" id="filtros-cli"><a href="#" data-f="todos" class="${filtro === 'todos' ? 'ativo' : ''}">Todos (${lista.length})</a><a href="#" data-f="conferir" class="${filtro === 'conferir' ? 'ativo' : ''}">Falta conferir (${aConferir})</a></nav>` : ''}
-    ${vis.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Nome</th><th>Documento</th><th>E-mail</th><th>Faturamento</th><th>Desconto</th></tr></thead><tbody>
-      ${vis.map((t, i) => `<tr class="clicavel" data-i="${i}"><td>${esc(t.nome)}${t.conferir ? ` <span class="selo-conferir" title="${esc(t.conferir_motivo ?? '')}">Conferir</span>` : ''}</td><td>${fmtDoc(t.documento)}</td><td>${esc(t.email ?? '')}</td><td>${NOME_MODO[t.modo_faturamento] ?? 'Nota'}</td><td>${t.desconto_valor ? brl(t.desconto_valor) : '<span class="dica">—</span>'}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="vazio">Nenhum tomador cadastrado.</div>'}`;
+    ${vis.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Nome</th><th>Documento</th><th>E-mail</th><th>Faturamento</th><th>Desconto</th></tr></thead><tbody>
+      ${pg.itens.map((t, i) => `<tr class="clicavel" data-i="${i}"><td>${esc(t.nome)}${t.conferir ? ` <span class="selo-conferir" title="${esc(t.conferir_motivo ?? '')}">Conferir</span>` : ''}</td><td>${fmtDoc(t.documento)}</td><td>${esc(t.email ?? '')}</td><td>${NOME_MODO[t.modo_faturamento] ?? 'Nota'}</td><td>${t.desconto_valor ? brl(t.desconto_valor) : '<span class="dica">—</span>'}</td></tr>`).join('')}
+    </tbody></table></div>${pg.html}</div>` : q ? vazioTela('tomadores', 'Nenhum cliente encontrado', 'Nenhum cadastro bate com a busca. Tente outro nome, documento ou e-mail.') : vazioTela('tomadores', 'Nenhum cliente cadastrado', 'Cadastre o primeiro cliente ou importe uma planilha com os CNPJs.')}`;
   $('#novo').onclick = () => formTomador(null, telaTomadores);
   $('#imp-planilha').onclick = () => importarPlanilhaClientes();
+  $('#form-busca-cli').onsubmit = (ev) => { ev.preventDefault(); telaTomadores.q = ev.target.q.value; telaTomadores.pg = 1; telaTomadores(); };
+  $('#cli-limpar').onclick = () => { telaTomadores.q = ''; telaTomadores.pg = 1; telaTomadores(); };
+  conteudo.querySelectorAll('.tl-pag [data-pg]').forEach((b) => (b.onclick = () => { telaTomadores.pg = Number(b.dataset.pg); telaTomadores(); }));
   conteudo.querySelectorAll('#filtros-cli a').forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); telaTomadores.filtro = a.dataset.f; telaTomadores(); }));
-  conteudo.querySelectorAll('tr[data-i]').forEach((tr) => (tr.onclick = () => formTomador(vis[tr.dataset.i], telaTomadores)));
+  conteudo.querySelectorAll('tr[data-i]').forEach((tr) => (tr.onclick = () => formTomador(pg.itens[tr.dataset.i], telaTomadores)));
 }
 
 /** Importa clientes de uma planilha (xlsx/csv) com CNPJ e, se houver, o nome; o sistema consulta cada CNPJ e deixa o cadastro marcado para conferir. */
@@ -4359,15 +4500,28 @@ function resumoTributacao(s) {
 
 async function telaServicos() {
   const lista = await api('GET', `/api/empresas/${estado.empresaId}/servicos`);
+  const q = (telaServicos.q ?? '').trim().toLowerCase();
+  const vis = q ? lista.filter((s) => `${s.nome} ${s.c_trib_nac} ${s.c_trib_mun ?? ''} ${s.c_nbs ?? ''}`.toLowerCase().includes(q)) : lista;
+  const pg = paginar(vis, telaServicos.pg || 1);
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Serviços</h1><p class="sutil">Modelos com código de tributação e alíquota, para emitir em poucos cliques.</p></div>
-      <button class="primario" id="novo">Cadastrar serviço</button></div>
-    ${lista.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Nome</th><th>Código nacional</th><th>NBS</th><th>Tributação</th><th class="num">Alíquota</th><th class="num">Valor padrão</th></tr></thead><tbody>
-      ${lista.map((s, i) => `<tr class="clicavel" data-i="${i}"><td>${esc(s.nome)}</td><td>${s.c_trib_nac}${s.c_trib_mun ? ' / ' + s.c_trib_mun : ''}</td><td>${s.c_nbs ?? ''}</td><td>${resumoTributacao(s)}</td>
+    ${cabecaTela('servicos', 'Serviços', 'Modelos com código de tributação e alíquota, para emitir em poucos cliques.', `<button class="tl-btn-ouro" id="novo">${icone('o-mais')} Cadastrar serviço</button>`)}
+    ${cartoesKpi([
+      { ic: 'servicos', tom: 'laranja', valor: lista.length, rotulo: 'Serviços cadastrados' },
+      { ic: 'tl-moedas', tom: 'verde', valor: lista.filter((s) => s.valor_padrao).length, rotulo: 'Com valor padrão' },
+      { ic: 'tl-alerta', tom: 'neutro', valor: lista.filter((s) => !s.valor_padrao).length, rotulo: 'Sem valor padrão (informado na emissão)' },
+    ])}
+    ${lista.length ? `<form class="tl-filtros" id="form-busca-srv"><label class="busca">Buscar <input name="q" value="${esc(telaServicos.q ?? '')}" placeholder="Buscar por nome, código ou NBS…"></label>
+      <span class="tl-acoes"><button type="button" id="srv-limpar">${icone('tl-limpar')} Limpar</button><button type="submit" class="tl-btn-ouro">${icone('o-busca')} Buscar</button></span></form>` : ''}
+    ${vis.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Nome</th><th>Código nacional</th><th>NBS</th><th>Tributação</th><th class="num">Alíquota</th><th class="num">Valor padrão</th></tr></thead><tbody>
+      ${pg.itens.map((s, i) => `<tr class="clicavel" data-i="${i}"><td>${esc(s.nome)}</td><td>${s.c_trib_nac}${s.c_trib_mun ? ' / ' + s.c_trib_mun : ''}</td><td>${s.c_nbs ?? ''}</td><td>${resumoTributacao(s)}</td>
         <td class="num">${s.aliquota != null ? s.aliquota + '%' : '—'}</td><td class="num">${s.valor_padrao ? brl(s.valor_padrao) : '—'}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="vazio">Cadastre os serviços que esta empresa presta.</div>'}`;
+    </tbody></table></div>${pg.html}</div>` : lista.length ? vazioTela('servicos', 'Nenhum serviço encontrado', 'Nenhum cadastro bate com a busca. Tente outro nome ou código.') : vazioTela('servicos', 'Nenhum serviço cadastrado', 'Cadastre os serviços que esta empresa presta para emitir notas em poucos cliques.', `<button class="tl-btn-ouro" id="vz-srv">${icone('o-mais')} Cadastrar serviço</button>`)}`;
   $('#novo').onclick = () => formServico();
-  conteudo.querySelectorAll('tr[data-i]').forEach((tr) => (tr.onclick = () => formServico(lista[tr.dataset.i])));
+  $('#vz-srv')?.addEventListener('click', () => formServico());
+  $('#form-busca-srv')?.addEventListener('submit', (ev) => { ev.preventDefault(); telaServicos.q = ev.target.q.value; telaServicos.pg = 1; telaServicos(); });
+  $('#srv-limpar')?.addEventListener('click', () => { telaServicos.q = ''; telaServicos.pg = 1; telaServicos(); });
+  conteudo.querySelectorAll('.tl-pag [data-pg]').forEach((b) => (b.onclick = () => { telaServicos.pg = Number(b.dataset.pg); telaServicos(); }));
+  conteudo.querySelectorAll('tr[data-i]').forEach((tr) => (tr.onclick = () => formServico(pg.itens[tr.dataset.i])));
 }
 
 // ---------------------------------------------------------------------------
@@ -4484,14 +4638,20 @@ async function telaEmpresas() {
   await carregarEmpresas();
   const lista = estado.empresas;
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Empresas</h1><p class="sutil">Transportadoras emitentes de CT-e e MDF-e. Cada uma com seu certificado A1.</p></div>
-      <button class="primario" id="novo">Cadastrar empresa</button></div>
-    ${lista.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Empresa</th><th>Documento</th><th>Regime</th><th>Ambiente</th><th>Certificado</th><th></th></tr></thead><tbody>
+    ${cabecaTela('empresas', 'Empresas', `Transportadoras emitentes de CT-e e MDF-e. Cada uma com seu certificado A1.`, `<button class="tl-btn-ouro" id="novo">${icone('o-mais')} Cadastrar empresa</button>`)}
+    ${cartoesKpi([
+      { ic: 'empresas', tom: 'laranja', valor: lista.length, rotulo: 'Empresas cadastradas' },
+      { ic: 'tl-check', tom: 'verde', valor: lista.filter((e) => e.ambiente === 1).length, rotulo: 'Emitindo em produção' },
+      { ic: 'tl-relogio', tom: 'neutro', valor: lista.filter((e) => e.ambiente !== 1).length, rotulo: 'Em ambiente de testes' },
+      { ic: 'tl-alerta', tom: lista.some((e) => e.modo_emissao !== 'PORTAL' && !e.tem_certificado) ? 'vermelho' : 'verde', valor: lista.filter((e) => e.modo_emissao !== 'PORTAL' && !e.tem_certificado).length, rotulo: 'Sem certificado enviado' },
+    ])}
+    ${lista.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Empresa</th><th>Documento</th><th>Regime</th><th>Ambiente</th><th>Certificado</th><th></th></tr></thead><tbody>
       ${lista.map((e, i) => `<tr><td>${esc(e.razao_social)}</td><td>${fmtDoc(e.documento)}</td><td>${['', 'Não optante', 'MEI', 'Simples ME/EPP'][e.op_simp_nac]}</td>
         <td>${e.ambiente === 1 ? 'Produção' : 'Testes'}</td><td>${e.modo_emissao === 'PORTAL' ? 'Portal (CNPJ e senha)' : e.tem_certificado ? `até ${dataBr(e.cert_validade)}` : '<span class="pendente-txt">Falta enviar</span>'}</td>
         <td><button data-editar="${i}">Editar</button> ${e.modo_emissao === 'PORTAL' ? '' : `<button data-cert="${i}">Certificado</button>`} <button data-logo="${i}">${e.tem_logo ? 'Logo ✓' : 'Logo'}</button> <button data-banco="${i}">Dados bancários</button></td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="vazio">Cadastre a transportadora emitente.</div>'}`;
+    </tbody></table></div></div>` : vazioTela('empresas', 'Nenhuma empresa cadastrada', 'Cadastre a transportadora emitente.', `<button class="tl-btn-ouro" id="vz-emp">${icone('o-mais')} Cadastrar empresa</button>`)}`;
   $('#novo').onclick = () => formEmpresa();
+  $('#vz-emp')?.addEventListener('click', () => formEmpresa());
   conteudo.querySelectorAll('[data-editar]').forEach((b) => (b.onclick = () => formEmpresa(lista[b.dataset.editar])));
   conteudo.querySelectorAll('[data-cert]').forEach((b) => (b.onclick = () => formCertificado(lista[b.dataset.cert])));
   conteudo.querySelectorAll('[data-logo]').forEach((b) => (b.onclick = () => formLogo(lista[b.dataset.logo])));
@@ -4520,7 +4680,7 @@ async function telaConfig(aba) {
   ].filter((x) => x[2]);
   if (!abas.some((x) => x[0] === aba)) aba = abas[0][0];
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Configurações</h1><p class="sutil">Ajustes gerais do sistema${adm ? '' : ' e da sua conta'}.</p></div></div>
+    ${cabecaTela('config', 'Configurações', `Ajustes gerais do sistema${adm ? '' : ' e da sua conta'} e preferências da sua operação.`)}
     <nav class="abas" aria-label="Configurações">${abas.map(([k, nome]) => `<a href="#/config/${k}" class="${k === aba ? 'ativo' : ''}">${nome}</a>`).join('')}</nav>
     <div id="cfg-corpo"></div>`;
   const tela = { conta: telaMinhaConta, usuarios: telaUsuarios, email: telaEmail, modelos: telaModelosEmail, aparencia: telaAparencia, backup: telaBackup, contabilidade: telaContabilidade, licenca: telaLicenca, atualizacoes: telaAtualizacoes }[aba];
@@ -4530,14 +4690,19 @@ async function telaConfig(aba) {
 function telaMinhaConta() {
   const u = estado.usuario;
   corpoConfig().innerHTML = `
-    <h2>Minha conta</h2>
-    <div class="cartao">
-      <div class="conta-avatar">${avatarSvg(u.avatar, 56) || `<span class="avatar-iniciais">${esc(iniciaisDoUsuario())}</span>`}<div>
-      <p><strong>${esc(u.nome)}</strong> · usuário <strong>${esc(u.login)}</strong></p>
-      <p class="sutil">Perfil: ${u.tipo === 'adm' ? 'Administrador (acesso total)' : 'Normal'}${u.email ? ' · ' + esc(u.email) : ' · sem e-mail cadastrado (a recuperação de senha por e-mail não fica disponível)'}</p></div></div>
+    <div class="cartao conta-novo">
+      <h2 style="margin-top:0">Minha conta</h2>
+      <div class="conta-avatar">${avatarSvg(u.avatar, 84) || `<span class="avatar-iniciais">${esc(iniciaisDoUsuario())}</span>`}<div>
+        <h3 style="margin:0">${esc(u.nome)} <span class="sutil">· usuário</span> <strong>${esc(u.login)}</strong></h3>
+        <p class="sutil">Perfil: ${u.tipo === 'adm' ? 'Administrador (acesso total)' : 'Normal'}${u.email ? '' : ' — sem e-mail cadastrado, a recuperação de senha por e-mail não fica disponível.'}</p></div></div>
+      <div class="kp-grade">
+        <div class="kp kp-neutro"><span class="kp-ico">${icone('o-email')}</span><span class="kp-txt"><strong style="font-size:1rem">${u.email ? esc(u.email) : 'Não cadastrado'}</strong><small>E-mail${!u.email && u.tipo === 'adm' ? ' · <a href="#/config/usuarios">Adicionar e-mail →</a>' : ''}</small></span></div>
+        <div class="kp kp-verde"><span class="kp-ico">${icone('tl-check')}</span><span class="kp-txt"><strong style="font-size:1rem">Ativa</strong><small>Status da conta</small></span></div>
+      </div>
       ${u.tipo === 'adm' ? '' : `<p class="sutil">Funcionalidades liberadas: ${u.modulos.length ? u.modulos.map((m) => esc(u.todosModulos[m])).join(', ') : 'nenhuma'}.</p>`}
-      <div class="acoes"><button class="primario" id="alterar-senha">Alterar minha senha</button><button type="button" id="trocar-avatar">Escolher avatar</button></div>
-    </div>`;
+      <div class="acoes"><button class="tl-btn-ouro" id="alterar-senha">${icone('o-ok')} Alterar minha senha</button><button type="button" class="tl-btn-borda" id="trocar-avatar">Escolher avatar</button></div>
+    </div>
+    ${dicaTela('Sua conta está segura', 'Mantenha seus dados sempre atualizados e troque a senha de tempos em tempos.')}`;
   $('#alterar-senha').onclick = () => trocarSenha();
   $('#trocar-avatar').onclick = () => escolherAvatar(() => telaMinhaConta());
 }
@@ -5062,6 +5227,27 @@ async function telaBackup() {
 // Ícones (traço fino, herdam a cor do tema), menu com ícones, sininho e usuário no topo
 // ---------------------------------------------------------------------------
 const ICONES = {
+  'em-doc': 'M7 3h7l5 5v6M14 3v5h5M7 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5M8.5 12h6M8.5 16h3M17 22a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM15 17.5l1.5 1.5 2.5-3',
+  'em-users': 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.5-3.6 3-5.5 6.5-5.5s6 1.9 6.5 5.5M16 4.5a3.2 3.2 0 0 1 0 6.2M18 14.8c2 .6 3.2 2.2 3.5 5.2',
+  'em-cfg': 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13.5l1.6 1.2-2 3.4-1.9-.6a7 7 0 0 1-1.6.9L15 20h-4l-.5-1.6a7 7 0 0 1-1.6-.9l-1.9.6-2-3.4 1.6-1.2a7 7 0 0 1 0-1.8L3 10.5l2-3.4 1.9.6a7 7 0 0 1 1.6-.9L9 5h4l.5 1.6a7 7 0 0 1 1.6.9l1.9-.6 2 3.4-1.6 1.2a7 7 0 0 1 0 1.8z',
+  'em-valor': 'M12 3v18M16.5 7.5c-.8-1-2.3-1.5-4.5-1.5-2.6 0-4 1.2-4 3s1.4 2.6 4 3 4 1.2 4 3-1.4 3-4 3c-2.2 0-3.7-.5-4.5-1.5',
+  'em-rasc': 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h4',
+  'em-enviar': 'M21 3 3 10.5l7 2.5 2.5 7zM21 3 10 13',
+  'em-salvar': 'M5 4h12l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6',
+  'tl-doc': 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6M10 9h2',
+  'tl-moedas': 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6',
+  'tl-relogio': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  'tl-alerta': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5h.01',
+  'tl-check': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.8 2.8L16.5 9.5',
+  'tl-limpar': 'M20 11a8 8 0 0 0-14.5-4.2L4 9M4 4v5h5M4 13a8 8 0 0 0 14.5 4.2L20 15M20 20v-5h-5',
+  'tl-filtro': 'M3 5h18l-7 8v6l-4-2v-4z',
+  'tl-olho': 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  'tl-baixar': 'M12 4v11M7.5 11 12 15.5 16.5 11M5 20h14',
+  'tl-mais': 'M5 12h.01M12 12h.01M19 12h.01',
+  'tl-predio': 'M5 21V4h10v17M15 9h4v12M3 21h18M8 8h4M8 12h4M8 16h4',
+  'tl-xml': 'M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12',
+  'tl-ajuda': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5h.01',
+  'tl-exportar': 'M12 15V4M7.5 8 12 3.5 16.5 8M5 14v6h14v-6',
   'o-busca': 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3',
   'o-mais': 'M12 5v14M5 12h14',
   'o-lixo': 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
@@ -5129,6 +5315,33 @@ ICONES['pagamentos-frete'] ??= ICONES.cobrancas;
 ICONES.acertos ??= ICONES.despesas;
 ICONES.viagens ??= 'M3 7h11v8H3zM14 10h4l3 3v2h-7M6.5 17.5a1.5 1.5 0 1 0 0 .01M17.5 17.5a1.5 1.5 0 1 0 0 .01M3 4h6';
 ICONES.veiculos ??= 'M2 6h12v9H2zM14 9h4l4 3v3h-8M7 17.5a1.5 1.5 0 1 0 0 .01M18 17.5a1.5 1.5 0 1 0 0 .01';
+
+// ---- peças visuais comuns às telas (cabeçalho, indicadores, filtros, paginação, dica) ----
+/** Cabeçalho da tela: ícone grande, título, subtítulo e, à direita, o que for passado (botões, mês de referência). */
+function cabecaTela(ic, titulo, sub, direita = '') {
+  return `<div class="orc-topo tl-topo"><span class="orc-ico grande">${icone(ic)}</span><div class="tl-tit"><h1>${titulo}</h1><p class="sutil">${sub}</p></div>${direita ? `<div class="tl-dir">${direita}</div>` : ''}</div>`;
+}
+/** Cartões de indicadores: [{ ic, tom: 'laranja' | 'verde' | 'vermelho' | 'neutro', valor, rotulo, href?, filtro? }]. */
+function cartoesKpi(lista) {
+  return `<div class="kp-grade">${lista.map((k) => `<${k.href || k.filtro != null ? 'a' : 'div'} class="kp kp-${k.tom ?? 'neutro'}" ${k.href ? `href="${k.href}"` : ''} ${k.filtro != null ? `data-kp="${esc(k.filtro)}" href="javascript:void(0)"` : ''}><span class="kp-ico">${icone(k.ic)}</span><span class="kp-txt"><strong>${k.valor}</strong><small>${k.rotulo}</small></span>${k.href || k.filtro != null ? `<span class="kp-seta">${icone('chevron')}</span>` : ''}</${k.href || k.filtro != null ? 'a' : 'div'}>`).join('')}</div>`;
+}
+/** Estado vazio: ilustração simples, título, texto e uma ação. */
+function vazioTela(ic, titulo, texto, acao = '') {
+  return `<div class="tl-vazio"><span class="tl-vazio-ico">${icone(ic)}</span><div><h2>${titulo}</h2><p>${texto}</p>${acao}</div></div>`;
+}
+/** Faixa de dica no fim da tela. */
+function dicaTela(titulo, texto, link = '') {
+  return `<div class="tl-dica">${icone('tl-ajuda')}<div><strong>${titulo}</strong> <span>${texto}</span></div>${link}</div>`;
+}
+/** Paginação simples no navegador: devolve { itens, html, ligar(rotulos) } para a página atual. */
+function paginar(lista, pagina, porPagina = 10) {
+  const total = lista.length, paginas = Math.max(1, Math.ceil(total / porPagina)), pg = Math.min(Math.max(1, pagina), paginas);
+  const ini = (pg - 1) * porPagina, itens = lista.slice(ini, ini + porPagina);
+  const nums = []; for (let i = 1; i <= paginas; i++) if (i === 1 || i === paginas || Math.abs(i - pg) <= 1) nums.push(i); else if (nums[nums.length - 1] !== '…') nums.push('…');
+  const html = `<div class="tl-pag"><span class="sutil">${total ? `Exibindo ${ini + 1}–${ini + itens.length} de ${total}` : 'Nenhum registro'}</span>${paginas > 1 ? `<span class="tl-pags"><button type="button" data-pg="${pg - 1}" ${pg === 1 ? 'disabled' : ''} aria-label="Anterior">${icone('o-voltar')}</button>${nums.map((n) => (n === '…' ? '<em>…</em>' : `<button type="button" data-pg="${n}" class="${n === pg ? 'atual' : ''}">${n}</button>`)).join('')}<button type="button" data-pg="${pg + 1}" ${pg === paginas ? 'disabled' : ''} aria-label="Próxima">${icone('chevron')}</button></span>` : ''}</div>`;
+  return { itens, pagina: pg, html };
+}
+
 const icone = (k, cls = 'ico') => (ICONES[k] ? `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONES[k]}"/></svg>` : '');
 
 function iconesMenu() {
@@ -5155,10 +5368,12 @@ function tituloDaAba(h) {
   const t = a?.textContent.trim();
   return t || { inicio: 'Início', nota: 'Nota', painel: 'Visão geral' }[nome] || nome.replace(/-/g, ' ').replace(/^./, (x) => x.toUpperCase());
 }
-function guardarAbas() { try { localStorage.setItem(chaveAbas(), JSON.stringify({ lista: abas.lista, ativa: abas.ativa })); } catch {} }
+// As abas valem só enquanto o programa está aberto: ficam em sessionStorage (somem ao fechar) e saem também no logout.
+function guardarAbas() { try { sessionStorage.setItem(chaveAbas(), JSON.stringify({ lista: abas.lista, ativa: abas.ativa })); } catch {} }
 function carregarAbas() {
   try {
-    const g = JSON.parse(localStorage.getItem(chaveAbas()) || 'null');
+    try { Object.keys(localStorage).filter((k) => k.startsWith('kontor-abas:')).forEach((k) => localStorage.removeItem(k)); } catch {} // restos de versões antigas
+    const g = JSON.parse(sessionStorage.getItem(chaveAbas()) || 'null');
     if (g && Array.isArray(g.lista)) {
       abas.lista = g.lista.filter((x) => x && typeof x.hash === 'string' && x.hash.startsWith('#/')).slice(0, ABAS_MAX);
       abas.ativa = abas.lista.some((x) => x.id === g.ativa) ? g.ativa : abas.lista[0]?.id ?? null;
@@ -5211,9 +5426,9 @@ function pintarAbas() {
   const caixa = $('#abas-app'); if (!caixa) return;
   const fechavel = abas.lista.length > 1;
   caixa.innerHTML = abas.lista.map((a) => `<div class="aba-app ${a.id === abas.ativa ? 'ativa' : ''}" data-aba="${a.id}" title="${esc(tituloDaAba(a.hash))}">
-      <button type="button" class="aba-ir">${esc(tituloDaAba(a.hash))}</button>${fechavel ? `<button type="button" class="aba-fechar" data-fechar-aba="${a.id}" aria-label="Fechar aba">×</button>` : ''}</div>`).join('')
+      <button type="button" class="aba-ir">${a.hash === '#/inicio' ? icone('inicio') : ''}${esc(tituloDaAba(a.hash))}</button>${fechavel ? `<button type="button" class="aba-fechar" data-fechar-aba="${a.id}" aria-label="Fechar aba">×</button>` : ''}</div>`).join('')
     + '<div class="aba-mais" id="aba-mais" hidden><button type="button" class="aba-mais-botao" id="aba-mais-botao" aria-haspopup="true" aria-expanded="false" title="Outras abas abertas">☰ <span id="aba-mais-qtd"></span></button><div class="aba-mais-lista" id="aba-mais-lista" hidden></div></div>'
-    + '<button type="button" class="aba-nova" id="aba-nova" title="Nova aba (Início)" aria-label="Nova aba">+</button>';
+    + `<button type="button" class="aba-nova" id="aba-nova" title="Nova aba (Início)" aria-label="Nova aba">${icone('o-mais')}</button>`;
   caixa.querySelectorAll('[data-aba]').forEach((el) => {
     const aba = abas.lista.find((x) => x.id === Number(el.dataset.aba));
     el.querySelector('.aba-ir').onclick = () => irParaAba(aba);
