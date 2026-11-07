@@ -1022,7 +1022,7 @@ const situacaoCobranca = (c) => (c.forma === 'PIX' ? STATUS_PIX[c.status] : STAT
 function informarPixDialogo(c, aoSalvar) {
   abrirDialogo(`<form id="form-pix"><h2>Pix da cobrança — ${esc(c.tomador_nome)}</h2>
     <p class="sutil">${brl(c.valor)} · vencimento ${dataBr(c.vencimento)} · ${esc((c.descricao ?? '').slice(0, 80))}</p>
-    <ol class="dicas"><li>No aplicativo ou internet banking do escritório, gere uma cobrança Pix (QR Code) de <strong>${brl(c.valor)}</strong>.</li>
+    <ol class="dicas"><li>No aplicativo ou internet banking da empresa, gere uma cobrança Pix (QR Code) de <strong>${brl(c.valor)}</strong>.</li>
       <li>Copie o código <em>Pix copia e cola</em> e cole abaixo.</li></ol>
     <label>Pix copia e cola <textarea name="codigo" rows="4" required spellcheck="false" style="font-family:ui-monospace,Consolas,monospace;font-size:.82rem">${esc(c.pix_copia_cola ?? '')}</textarea></label>
     <p class="erro" id="erro-pix"></p>
@@ -1161,7 +1161,7 @@ async function telaCobrancas() {
   if (cd) cd.onclick = async () => {
     const r = await api('GET', `/api/empresas/${estado.empresaId}/demonstrativo`);
     abrirDialogo(`<form id="form-demo"><h2>Demonstrativo de cobrança</h2>
-      <p class="sutil">O demonstrativo usa a logo, o CNPJ, o endereço, o e-mail e o WhatsApp do cadastro da empresa. Aqui você escolhe a frase do rodapé, que aparece depois do nome do escritório.</p>
+      <p class="sutil">O demonstrativo usa a logo, o CNPJ, o endereço, o e-mail e o WhatsApp do cadastro da empresa. Aqui você escolhe a frase do rodapé, que aparece depois do nome da transportadora.</p>
       <label>Frase do rodapé <input name="rodape" maxlength="120" value="${esc(r.rodape)}" placeholder="Transformando contabilidade em decisões estratégicas"></label>
       <p class="erro" id="erro-demo"></p>
       <div class="acoes"><button class="primario" type="submit">Salvar</button><button type="button" data-fechar>Fechar</button></div></form>`, (d) => {
@@ -4484,13 +4484,13 @@ async function telaEmpresas() {
   await carregarEmpresas();
   const lista = estado.empresas;
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>Empresas</h1><p class="sutil">Prestadores que emitem pelo escritório. Cada um com seu certificado A1.</p></div>
+    <div class="topo"><div><h1>Empresas</h1><p class="sutil">Transportadoras emitentes de CT-e e MDF-e. Cada uma com seu certificado A1.</p></div>
       <button class="primario" id="novo">Cadastrar empresa</button></div>
     ${lista.length ? `<div class="rolagem"><table class="tabela"><thead><tr><th>Empresa</th><th>Documento</th><th>Regime</th><th>Ambiente</th><th>Certificado</th><th></th></tr></thead><tbody>
       ${lista.map((e, i) => `<tr><td>${esc(e.razao_social)}</td><td>${fmtDoc(e.documento)}</td><td>${['', 'Não optante', 'MEI', 'Simples ME/EPP'][e.op_simp_nac]}</td>
         <td>${e.ambiente === 1 ? 'Produção' : 'Testes'}</td><td>${e.modo_emissao === 'PORTAL' ? 'Portal (CNPJ e senha)' : e.tem_certificado ? `até ${dataBr(e.cert_validade)}` : '<span class="pendente-txt">Falta enviar</span>'}</td>
         <td><button data-editar="${i}">Editar</button> ${e.modo_emissao === 'PORTAL' ? '' : `<button data-cert="${i}">Certificado</button>`} <button data-logo="${i}">${e.tem_logo ? 'Logo ✓' : 'Logo'}</button> <button data-banco="${i}">Dados bancários</button></td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="vazio">Cadastre a primeira empresa cliente do escritório.</div>'}`;
+    </tbody></table></div>` : '<div class="vazio">Cadastre a transportadora emitente.</div>'}`;
   $('#novo').onclick = () => formEmpresa();
   conteudo.querySelectorAll('[data-editar]').forEach((b) => (b.onclick = () => formEmpresa(lista[b.dataset.editar])));
   conteudo.querySelectorAll('[data-cert]').forEach((b) => (b.onclick = () => formCertificado(lista[b.dataset.cert])));
@@ -4801,7 +4801,7 @@ async function telaEmail() {
         <label>Segurança <select name="secure"><option value="0">STARTTLS (porta 587)</option><option value="1" ${c.secure ? 'selected' : ''}>SSL (porta 465)</option></select></label>
         <label>Usuário (e-mail de login) <input name="usuario" required autocomplete="off" value="${esc(c.usuario)}"></label>
         <label>Senha (ou senha de aplicativo) <input name="senha" type="password" autocomplete="new-password" placeholder="${c.tem_senha ? 'já salva — deixe em branco para manter' : ''}" ${c.tem_senha ? '' : 'required'}></label>
-        <label>Nome do remetente <input name="remetente_nome" required placeholder="Escritório Silva Contabilidade" value="${esc(c.remetente_nome)}"></label>
+        <label>Nome do remetente <input name="remetente_nome" required placeholder="Transportes Horizonte" value="${esc(c.remetente_nome)}"></label>
         <label>E-mail do remetente <input name="remetente_email" type="email" required value="${esc(c.remetente_email)}"></label>
       </div>
       <p class="dica" id="dica-provedor"></p>
@@ -4809,7 +4809,7 @@ async function telaEmail() {
       <div class="acoes"><button class="primario" type="submit">Salvar</button>
         <button type="button" id="testar" ${c.host ? '' : 'disabled'}>Enviar e-mail de teste</button></div>
     </form>
-    <p class="sutil">O e-mail sai em nome do escritório e o cliente responde para o e-mail cadastrado da empresa emitente. Só notas em <b>Produção</b> podem ser enviadas. O texto de cada e-mail é editável na aba <a href="#/config/modelos">Modelos de e-mail</a>.</p>`;
+    <p class="sutil">O e-mail sai em nome da transportadora e o cliente responde para o e-mail cadastrado da empresa emitente. Só notas em <b>Produção</b> podem ser enviadas. O texto de cada e-mail é editável na aba <a href="#/config/modelos">Modelos de e-mail</a>.</p>`;
   const f = $('#form-smtp');
   const dica = () => ($('#dica-provedor').textContent = PROVEDORES[$('#provedor').value].dica);
   $('#provedor').onchange = () => { const p = PROVEDORES[$('#provedor').value]; if (p.host) { f.host.value = p.host; f.port.value = p.port; f.secure.value = p.secure ? '1' : '0'; } dica(); };
@@ -5634,7 +5634,7 @@ async function telaOrcamento(param) {
     try { await api('DELETE', `${base}/${o.id}`); aviso('Orçamento excluído.'); location.hash = '#/orcamentos'; } catch (err) { aviso(mensagemErro(err)); }
   });
   $('#o-email').onclick = () => abrirDialogo(`<form id="form-oe"><h2>Enviar orçamento nº ${o.numero} por e-mail</h2>
-    <p class="sutil">O PDF segue em anexo, com o e-mail do escritório configurado.</p>
+    <p class="sutil">O PDF segue em anexo, com o e-mail configurado.</p>
     <label>Para <input name="para" required value="${esc(o.email ?? '')}" placeholder="cliente@empresa.com"></label>
     <p class="erro" id="erro-oe"></p><div class="acoes"><button type="submit" class="primario">Enviar</button><button type="button" id="oe-cancelar">Cancelar</button></div></form>`, (d) => {
     $('#oe-cancelar').onclick = () => d.close();

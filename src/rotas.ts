@@ -162,7 +162,7 @@ export async function rotas(app: FastifyInstance) {
 
   app.post('/api/setup', async (req, reply) => {
     const d = z.object({
-      escritorio: z.string().min(2, 'Informe o nome do escritório'),
+      escritorio: z.string().min(2, 'Informe o nome da transportadora'),
       nome: z.string().min(2, 'Informe seu nome'),
       usuario: z.string().trim().regex(/^[A-Za-z0-9._-]{3,30}$/, 'Usuário: 3 a 30 letras ou números, sem espaços nem acentos').optional(),
       email: z.string().email('E-mail inválido'),

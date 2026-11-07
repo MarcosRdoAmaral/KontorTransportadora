@@ -12,8 +12,8 @@
   <div id="setup" class="login" hidden>
     <form id="form-setup" class="login-caixa">
       <img class="logo" src="/logo.svg" alt="Kontor Gestão Transportadora">
-      <p class="chamada">Emissor de NFS-e. Vamos criar o primeiro acesso; seus dados ficam guardados somente neste computador.</p>
-      <label>Nome do escritório <input name="escritorio" required autocomplete="organization"></label>
+      <p class="chamada">Gestão de transportadora: viagens, CT-e, MDF-e e faturas de frete. Vamos criar o primeiro acesso; seus dados ficam guardados somente neste computador.</p>
+      <label>Nome da transportadora <input name="escritorio" required autocomplete="organization"></label>
       <label>Seu nome <input name="nome" required autocomplete="name"></label>
       <label>Usuário de acesso <input name="usuario" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._\-]+" autocomplete="username" style="text-transform:uppercase"><span class="dica">É com ele que você entra no sistema (sem espaços nem acentos). Fica sempre em MAIÚSCULAS.</span></label>
       <label>E-mail <input name="email" type="email" required autocomplete="email"><span class="dica">Usado para recuperar a senha.</span></label>
@@ -27,7 +27,7 @@
   <div id="login" class="login" hidden>
     <form id="form-login" class="login-caixa">
       <img class="logo" src="/logo.svg" alt="Kontor Gestão Transportadora">
-      <p class="chamada">Emissor de NFS-e pelo Sistema Nacional.</p>
+      <p class="chamada">Viagens, CT-e, MDF-e e faturas de frete.</p>
       <label>Usuário <input name="usuario" required autocomplete="username" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase"></label>
       <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
       <p class="erro" id="erro-login" role="alert"></p>
