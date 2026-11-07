@@ -4,7 +4,7 @@
  * aqui (e a data/versão em MANUAL_VERSAO) antes de publicar a versão.
  * `corpo` é HTML escrito à mão (não recebe dados de usuário).
  */
-export const MANUAL_VERSAO = '1.1.1';
+export const MANUAL_VERSAO = '1.1.2';
 
 export const MANUAL = [
   {
@@ -168,7 +168,7 @@ export const MANUAL = [
       </ol>
       <h3>Outras ações</h3>
       <ul>
-        <li><strong>Boleto:</strong> abre o PDF para imprimir ou enviar. <strong>WhatsApp</strong> abre a mensagem pronta; <strong>Enviar pelo sistema</strong> manda direto, sem abrir o WhatsApp (lembrete, atraso e pagamento confirmado), desde que o cliente tenha autorizado receber mensagens.</li>
+        <li><strong>Boleto:</strong> abre o PDF para imprimir ou enviar. <strong>WhatsApp</strong> abre a mensagem pronta.</li>
         <li><strong>Marcar pago:</strong> baixa manual. <strong>Reemitir:</strong> altera vencimento ou valor. <strong>Cancelar:</strong> se já foi ao banco, a baixa vai na próxima remessa.</li>
       </ul>`,
   },
@@ -284,7 +284,6 @@ export const MANUAL = [
         <li><strong>Modelos de e-mail:</strong> o texto de cada e-mail (nota, cancelamento, boleto, Pix e fechamento para a contabilidade). Clique nos campos automáticos (como <code>{{cliente}}</code> e <code>{{valor}}</code>) para inserir, veja a prévia ao vivo, envie um teste para você e, se quiser, restaure o texto sugerido. Se um campo estiver vazio em um envio, a linha dele não vai no e-mail.</li>
         <li><strong>Aparência:</strong> escolha entre <em>Preto e laranja</em>, <em>Branco e laranja</em>, <em>Azul e dourado</em>, <em>Azul e roxo</em>, <em>Verde petróleo e esmeralda</em>, <em>Grafite e azul elétrico</em>, <em>Marrom e champagne</em>, <em>Roxo e rosa</em>. Vale para o computador.</li>
         <li><strong>Backup:</strong> o sistema faz cópia automática diária; também dá para baixar um backup quando quiser. Guarde uma cópia fora do computador.</li>
-        <li><strong>WhatsApp:</strong> histórico das mensagens enviadas pelo sistema e das que falharam. O envio usa o serviço da Kontor e tem cota mensal por licença. Para ativar, informe o código deste computador ao suporte e cole aqui o código de ativação que receber.</li>
         <li><strong>Licença:</strong> mostra a situação e o <strong>plano</strong> e permite informar um novo código. O período de teste dura <strong>7 dias</strong> e permite <strong>1 empresa e 2 clientes</strong>. Os planos pagos são <strong>Bronze</strong> (R$ 200/mês, 1 empresa), <strong>Prata</strong> (R$ 350/mês, até 5 empresas), <strong>Ouro</strong> (R$ 600/mês, até 15 empresas) e <strong>Diamante</strong> (ilimitado, sob encomenda). O botão <strong>Alterar plano</strong> mostra os planos e abre o WhatsApp do suporte já com o código do computador; depois do pagamento você recebe o novo código e o cola ali. Ao atingir o limite do plano, o cadastro de nova empresa ou de novo cliente pede a troca de plano. Nos <strong>15 dias</strong> antes do vencimento (da licença ou do período de teste) o menu mostra "Licença vence em N dia(s)" em destaque e o sistema abre um aviso uma vez por dia, com o código do computador para pedir a renovação. Vencida a licença, a emissão e os módulos adicionais são bloqueados.</li>
         <li><strong>Módulos adicionais:</strong> módulos vendidos à parte vêm instalados em todas as versões e ficam liberados durante o período de teste; com a licença paga, só funcionam se o código de ativação os trouxer. Sem o módulo, o item continua no menu com a marca <em>contratar</em> e abre a apresentação com o botão <strong>Quero contratar</strong>, que chama o suporte no WhatsApp com o código do computador. Depois de contratado, basta colar o novo código em Licença: o módulo aparece na hora, sem reinstalar.</li>
         <li><strong>Atualizações:</strong> quando sai uma versão nova, aparece um aviso no topo com três opções: <em>Atualizar agora</em> (baixa, faz a cópia de segurança e instala), <em>Baixar e instalar ao fechar</em> (baixa agora e instala sozinho quando você fechar o programa) e <em>Só baixar</em> (deixa pronta; depois é só clicar em <em>Instalar agora</em>). Os dados são preservados.</li>

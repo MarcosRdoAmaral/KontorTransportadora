@@ -1089,31 +1089,6 @@ const migracoes: string[] = [
   ALTER TABLE mdfes ADD COLUMN evento_protocolo TEXT;
   ALTER TABLE mdfes ADD COLUMN evento_xml TEXT;
   CREATE UNIQUE INDEX ux_mdfes_numero ON mdfes(empresa_id, tp_amb, serie, numero);`,
-  // WhatsApp automático (Twilio): autorização do cliente e histórico de envios
-  `ALTER TABLE tomadores ADD COLUMN whatsapp_aceite INTEGER NOT NULL DEFAULT 0;
-  CREATE TABLE whatsapp_envios (
-    id INTEGER PRIMARY KEY,
-    empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    tipo TEXT NOT NULL,
-    destino TEXT NOT NULL,
-    status TEXT NOT NULL,
-    erro TEXT,
-    sid TEXT,
-    tomador_id INTEGER REFERENCES tomadores(id) ON DELETE SET NULL,
-    cobranca_id INTEGER,
-    nota_id INTEGER,
-    usuario_id INTEGER,
-    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE INDEX idx_whatsapp_empresa ON whatsapp_envios(empresa_id, id);`,
-  // código de ativação do WhatsApp (vale mesmo com o controle de licença do sistema desligado)
-  `CREATE TABLE whatsapp_licenca (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    codigo TEXT NOT NULL,
-    cliente TEXT,
-    ate TEXT,
-    ativada_em TEXT NOT NULL DEFAULT (datetime('now'))
-  );`,
 ];
 
 export function migrar(): void {
