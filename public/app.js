@@ -3588,13 +3588,63 @@ const seloDoc = (st) => selo(STATUS_DOC[st]?.[0] ?? st, STATUS_DOC[st]?.[1] ?? '
 const rotaTxt = (x, p1 = 'origem', p2 = 'destino') => `${esc(x[`${p1}_cidade`] ?? '')}/${esc(x[`${p1}_uf`] ?? '')} → ${esc(x[`${p2}_cidade`] ?? '')}/${esc(x[`${p2}_uf`] ?? '')}`;
 const pendenciasHtml = (lista, titulo = 'Falta para transmitir à SEFAZ') => (lista?.length
   ? `<div class="aviso-campo"><strong>${esc(titulo)}</strong><ul style="margin:4px 0 0;padding-left:18px">${lista.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
-const AVISO_SEFAZ = '<p class="dica" style="margin:8px 0 0">A transmissão à SEFAZ (homologação e produção, com o certificado A1) está em desenvolvimento. Por enquanto o documento é montado e conferido aqui.</p>';
+const seloAmbiente = (a) => (a === 1 ? selo('Produção', 'var(--verde)') : selo('Homologação · sem valor fiscal', 'var(--ambar)'));
+/** Número, chave, protocolo e último retorno da SEFAZ de um CT-e/MDF-e. */
+const infoSefaz = (x) => `<div class="cartao" style="margin:10px 0;padding:12px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${seloAmbiente(x.ambiente)}${x.numero ? ` <span>Nº <strong>${x.numero}</strong> · série ${x.serie}</span>` : ' <span class="dica">número e chave são gerados na transmissão</span>'}</div>
+  ${x.chave ? `<div class="dica" style="margin-top:4px">Chave ${esc(x.chave.replace(/(\d{4})(?=\d)/g, '$1 '))}</div>` : ''}
+  ${x.protocolo ? `<div style="margin-top:4px">Protocolo <strong>${esc(x.protocolo)}</strong>${x.autorizado_em ? ` · ${esc(String(x.autorizado_em).slice(0, 16).replace('T', ' '))}` : ''}</div>` : ''}
+  ${x.ultimo_retorno && x.status === 'RASCUNHO' ? `<div class="cor-vermelho" style="margin-top:4px">Último retorno da SEFAZ: ${esc(x.ultimo_retorno)}</div>` : ''}</div>`;
+
+/** Dados do emitente que o CT-e/MDF-e exigem, ambiente (homologação/produção) e teste de comunicação com a SEFAZ. */
+async function formEmitente(aoSalvar) {
+  const e = await api('GET', `/api/empresas/${estado.empresaId}/emitente-transporte`);
+  abrirDialogo(`<form id="form-emit" class="dialogo-largo"><h2>Emitente e SEFAZ</h2>
+    <p class="sutil">${esc(e.razao_social)} · ${esc(fmtDoc(e.documento))} · certificado ${e.cert_validade ? `válido até ${fmtDataBr(e.cert_validade)}` : '<strong class="cor-vermelho">não cadastrado</strong> (Cadastros → Empresas)'}</p>
+    ${pendenciasHtml(e.pendencias, 'Falta para emitir')}
+    <div class="grade">
+      <label>Ambiente <select name="ambiente">${opcoesDe([[2, 'Homologação (testes, sem valor fiscal)'], [1, 'Produção']], e.ambiente)}</select></label>
+      <label>Inscrição estadual <input name="inscricao_estadual" required value="${esc(e.inscricao_estadual ?? '')}"></label>
+      <label>RNTRC (ANTT) <input name="rntrc" required maxlength="8" inputmode="numeric" value="${esc(e.rntrc ?? '')}"></label>
+      <label>Telefone <input name="fone" value="${esc(e.fone ?? '')}"></label>
+      <label>CEP <input name="cep" maxlength="9" value="${esc(e.cep ?? '')}"></label>
+      <label class="largo">Logradouro <input name="logradouro" required maxlength="60" value="${esc(e.logradouro ?? '')}"></label>
+      <label>Número <input name="numero_end" maxlength="60" value="${esc(e.numero_end ?? '')}"></label>
+      <label>Complemento <input name="complemento" maxlength="60" value="${esc(e.complemento ?? '')}"></label>
+      <label>Bairro <input name="bairro" required maxlength="60" value="${esc(e.bairro ?? '')}"></label>
+      <label>Cidade <input name="cidade" required maxlength="60" value="${esc(e.cidade ?? '')}"></label>
+      <label>UF <select name="uf">${opcoesDe(UFS.map((u) => [u, u]), e.uf)}</select></label>
+      <label>Série do CT-e <input name="serie_cte" data-num inputmode="numeric" value="${e.serie_cte ?? 1}"></label>
+      <label>Série do MDF-e <input name="serie_mdfe" data-num inputmode="numeric" value="${e.serie_mdfe ?? 1}"></label>
+    </div>
+    <p class="dica">Município (IBGE ${esc(e.cod_municipio ?? '')}) e CNPJ vêm do cadastro da empresa. Comece em homologação: os documentos saem com "SEM VALOR FISCAL" e a numeração é separada da produção.</p>
+    <div id="emit-status"></div>
+    <p class="erro" id="erro-emit"></p>
+    <div class="acoes"><button class="primario" type="submit">Salvar</button><button type="button" id="emit-cte">Testar comunicação CT-e</button><button type="button" id="emit-mdfe">Testar comunicação MDF-e</button><button type="button" data-fechar>Fechar</button></div></form>`, (dlg) => {
+    const f = $('#form-emit'), erro = (x) => ($('#erro-emit').textContent = x ? mensagemErro(x) : '');
+    f.cep.addEventListener('change', () => buscarCep(f));
+    const salvar = async () => {
+      const d = lerForm(f);
+      await api('PUT', `/api/empresas/${estado.empresaId}/emitente-transporte`, { ...d, ambiente: Number(d.ambiente), serie_cte: d.serie_cte ?? 1, serie_mdfe: d.serie_mdfe ?? 1 });
+    };
+    f.onsubmit = async (ev) => { ev.preventDefault(); erro(); try { await salvar(); dlg.close(); aviso('Dados do emitente salvos.'); aoSalvar?.(); } catch (x) { erro(x); } };
+    const testar = (tipo) => async () => {
+      erro(); $('#emit-status').innerHTML = '<p class="dica">Consultando a SEFAZ…</p>';
+      try {
+        await salvar();
+        const r = await api('GET', `/api/empresas/${estado.empresaId}/sefaz-${tipo}-status`);
+        $('#emit-status').innerHTML = `<div class="cartao" style="padding:10px">${tipo === 'cte' ? 'CT-e' : 'MDF-e'} · ${esc(r.ambiente)}: <strong class="${['107'].includes(r.cStat) ? 'cor-verde' : 'cor-vermelho'}">${esc(r.cStat)} - ${esc(r.xMotivo)}</strong></div>`;
+      } catch (x) { $('#emit-status').innerHTML = ''; erro(x); }
+    };
+    $('#emit-cte').onclick = testar('cte'); $('#emit-mdfe').onclick = testar('mdfe');
+  });
+}
 
 /** Lista simples com título, filtros em abas e clique na linha. */
-async function telaLista({ titulo, subtitulo, botao, aoBotao, abas, chave, buscar, colunas, aoClicar, vazio, rodape }) {
+async function telaLista({ titulo, subtitulo, botao, aoBotao, abas, chave, buscar, colunas, aoClicar, vazio, rodape, extra }) {
   let filtro = abas ? sessionStorage.getItem(chave) ?? abas[0][0] : '';
   conteudo.innerHTML = `
-    <div class="topo"><div><h1>${esc(titulo)}</h1><p class="sutil">${esc(subtitulo)}</p></div>${botao ? `<div><button class="primario" id="lista-botao">${esc(botao)}</button></div>` : ''}</div>
+    <div class="topo"><div><h1>${esc(titulo)}</h1><p class="sutil">${esc(subtitulo)}</p></div><div>${extra ? `<button type="button" id="lista-extra">${esc(extra)}</button> ` : ''}${botao ? `<button class="primario" id="lista-botao">${esc(botao)}</button>` : ''}</div></div>
     ${abas ? `<nav class="abas" id="lista-abas">${abas.map(([k, n]) => `<a href="#" data-f="${k}" class="${k === filtro ? 'ativo' : ''}">${esc(n)}</a>`).join('')}</nav>` : ''}
     <div id="lista-rodape" class="sutil" style="margin-bottom:10px"></div>
     <div id="lista-corpo"></div>`;
@@ -3615,6 +3665,7 @@ async function telaLista({ titulo, subtitulo, botao, aoBotao, abas, chave, busca
     carregar().catch((e) => aviso(mensagemErro(e)));
   }));
   if (botao) $('#lista-botao').onclick = () => aoBotao(carregar);
+  if (extra) $('#lista-extra').onclick = () => formEmitente();
   await carregar();
   return carregar;
 }
@@ -3683,7 +3734,7 @@ async function telaCtes() {
     abas: [['', 'Todos'], ['RASCUNHO', 'Rascunhos'], ['AUTORIZADO', 'Autorizados'], ['CANCELADO', 'Cancelados']], chave: 'ctes-filtro',
     buscar: (f) => api('GET', `/api/empresas/${estado.empresaId}/ctes${f ? `?status=${f}` : ''}`),
     colunas: [
-      { t: 'Nº', v: (c) => (c.numero ? `<strong>${c.numero}</strong>` : '<span class="dica">—</span>') },
+      { t: 'Nº', v: (c) => (c.numero ? `<strong>${c.numero}</strong>${c.tp_amb === 2 ? ' <span class="dica">homol.</span>' : ''}` : '<span class="dica">—</span>') },
       { t: 'Viagem', v: (c) => `${c.viagem_numero}` },
       { t: 'Tomador', v: (c) => esc(c.tomador_nome) },
       { t: 'Rota', v: (c) => rotaTxt(c) },
@@ -3693,7 +3744,7 @@ async function telaCtes() {
       { t: 'Fatura', v: (c) => (c.fatura_numero ? `nº ${c.fatura_numero}` : '<span class="dica">—</span>') },
       { t: 'Situação', v: (c) => seloDoc(c.status) },
     ],
-    aoClicar: (c, recarregar) => formCte(c.id, recarregar), vazio: 'Nenhum CT-e. Gere a partir de uma viagem.',
+    aoClicar: (c, recarregar) => formCte(c.id, recarregar), vazio: 'Nenhum CT-e. Gere a partir de uma viagem.', extra: 'Emitente e SEFAZ',
     rodape: (l) => (l.length ? `${l.length} CT-e · prestação ${brl(l.filter((c) => c.status !== 'CANCELADO').reduce((s, c) => s + c.valor_prestacao, 0))}` : ''),
   });
 }
@@ -3719,9 +3770,10 @@ async function formCte(id, aoSalvar) {
   const editavel = c.status === 'RASCUNHO';
   const CFOPS = ['351', '352', '353', '354', '355', '356', '357', '359', '360'].map((x) => `${c.origem_uf === c.destino_uf ? '5' : '6'}${x}`);
   const NOMES_CFOP = { 351: 'para execução de serviço da mesma natureza', 352: 'a estabelecimento industrial', 353: 'a estabelecimento comercial', 354: 'a prestador de serviço de comunicação', 355: 'a geradora/distribuidora de energia', 356: 'a produtor rural', 357: 'a não contribuinte', 359: 'a contribuinte/produtor rural com substituição', 360: 'a contribuinte substituto' };
-  const CST = { '00': '00 · tributação normal', 20: '20 · base reduzida', 40: '40 · isenta', 41: '41 · não tributada', 51: '51 · diferimento', 60: '60 · cobrado por ST', 90: '90 · outras', SN: 'Simples Nacional' };
+  const CST = { '00': '00 · tributação normal', 40: '40 · isenta', 41: '41 · não tributada', 51: '51 · diferimento', 90: '90 · outras', SN: 'Simples Nacional' };
   abrirDialogo(`<form id="form-cte" class="dialogo-largo">
     <h2>CT-e ${c.numero ? `nº ${c.numero}` : '(rascunho)'} · viagem nº ${c.viagem_numero} ${seloDoc(c.status)}</h2>
+    ${infoSefaz(c)}
     ${pendenciasHtml(c.pendencias)}
     <fieldset ${editavel ? '' : 'disabled'} style="border:0;padding:0;margin:0">
     <div class="duas-colunas" style="margin-top:10px">
@@ -3744,14 +3796,31 @@ async function formCte(id, aoSalvar) {
     </fieldset>
     <h3>NF-e transportadas</h3>
     ${c.nfes.length ? `<table class="tabela"><tbody>${c.nfes.map((n) => `<tr><td>${esc(n.numero ?? '')}${n.completa ? '' : ' <span class="selo-conferir">só chave</span>'}</td><td class="dica" style="font-size:11px">${esc(n.chave)}</td><td class="num">${n.valor != null ? brl(n.valor) : '—'}</td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nenhuma NF-e na viagem.</p>'}
-    ${editavel ? AVISO_SEFAZ : ''}
     <p class="erro" id="erro-cte"></p>
-    <div class="acoes">${editavel ? '<button class="primario" type="submit">Salvar</button><button type="button" id="cte-transmitir">Transmitir à SEFAZ</button><button type="button" id="cte-mdfe">Gerar MDF-e</button><button type="button" id="cte-cancelar">Excluir rascunho</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
+    <div class="acoes">${editavel ? `<button class="primario" type="submit">Salvar</button><button type="button" id="cte-transmitir">Transmitir à SEFAZ</button><button type="button" id="cte-emitente">Emitente e SEFAZ</button>${c.numero ? '' : '<button type="button" id="cte-cancelar">Excluir rascunho</button>'}` : ''}
+      ${c.status !== 'CANCELADO' ? '<button type="button" id="cte-mdfe">MDF-e</button>' : ''}${c.tem_xml && c.status !== 'RASCUNHO' ? '<button type="button" id="cte-xml">Baixar XML</button>' : ''}
+      ${c.status === 'AUTORIZADO' ? '<button type="button" id="cte-cancelar-sefaz">Cancelar na SEFAZ</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
   </form>`, (dlg) => {
     const f = $('#form-cte'), erro = (e) => ($('#erro-cte').textContent = e ? mensagemErro(e) : '');
     const icms = () => { const isento = ['40', '41', '51', '60', 'SN'].includes(f.cst_icms.value); f.aliquota_icms.disabled = isento; $('#cte-icms').textContent = brl(isento ? 0 : ((numero(f.valor_prestacao.value) ?? 0) * (numero(f.aliquota_icms.value) ?? 0)) / 100); };
     ['valor_prestacao', 'aliquota_icms'].forEach((k) => f[k].addEventListener('input', icms)); f.cst_icms.addEventListener('change', icms); icms();
+    const bm = $('#cte-mdfe');
+    if (bm) bm.onclick = async () => { erro(); try { const m = await api('POST', `/api/viagens/${c.viagem_id}/mdfe`); dlg.close(); formMdfe(m.id, aoSalvar); } catch (e) { erro(e); } };
+    const bx = $('#cte-xml');
+    if (bx) bx.onclick = () => baixar(`/api/ctes/${id}/xml`, `CTe-${c.chave}.xml`);
+    const bc = $('#cte-cancelar-sefaz');
+    if (bc) bc.onclick = async () => {
+      const j = prompt('Justificativa do cancelamento (15 a 255 caracteres). O cancelamento é registrado na SEFAZ e não pode ser desfeito:');
+      if (j === null) return;
+      erro(); bc.disabled = true;
+      try { await api('POST', `/api/ctes/${id}/cancelar`, { justificativa: j }); dlg.close(); aviso('CT-e cancelado na SEFAZ.'); aoSalvar?.(); } catch (e) { erro(e); bc.disabled = false; }
+    };
     if (!editavel) return;
+    $('#cte-emitente').onclick = () => { dlg.close(); formEmitente(() => formCte(id, aoSalvar)); };
+    const salvarCte = async () => {
+      const d = lerForm(f);
+      await api('PUT', `/api/ctes/${id}`, { cfop: d.cfop, tomador_papel: d.tomador_papel, valor_prestacao: d.valor_prestacao ?? 0, cst_icms: d.cst_icms, aliquota_icms: d.aliquota_icms ?? 0, produto: d.produto, observacao: d.observacao });
+    };
     f.onsubmit = async (ev) => {
       ev.preventDefault(); erro();
       const d = lerForm(f);
@@ -3760,9 +3829,17 @@ async function formCte(id, aoSalvar) {
         dlg.close(); aviso('CT-e salvo.'); aoSalvar?.();
       } catch (e) { erro(e); }
     };
-    $('#cte-transmitir').onclick = async () => { erro(); try { await api('POST', `/api/ctes/${id}/transmitir`); } catch (e) { erro(e); } };
-    $('#cte-mdfe').onclick = async () => { erro(); try { const m = await api('POST', `/api/viagens/${c.viagem_id}/mdfe`); dlg.close(); location.hash = '#/mdfes'; setTimeout(() => formMdfe(m.id), 300); } catch (e) { erro(e); } };
-    $('#cte-cancelar').onclick = async () => {
+    const bt = $('#cte-transmitir');
+    bt.onclick = async () => {
+      erro(); bt.disabled = true; bt.textContent = 'Transmitindo…';
+      try {
+        await salvarCte();
+        const r = await api('POST', `/api/ctes/${id}/transmitir`);
+        dlg.close(); aviso(`CT-e nº ${r.numero} autorizado${r.ambiente === 2 ? ' em homologação' : ''}. Protocolo ${r.protocolo}.`); aoSalvar?.(); formCte(id, aoSalvar);
+      } catch (e) { erro(e); bt.disabled = false; bt.textContent = 'Transmitir à SEFAZ'; }
+    };
+    const bd = $('#cte-cancelar');
+    if (bd) bd.onclick = async () => {
       if (!confirm('Excluir este rascunho de CT-e? A viagem continua e um novo rascunho pode ser gerado.')) return;
       try { await api('POST', `/api/ctes/${id}/cancelar`); dlg.close(); aoSalvar?.(); } catch (e) { erro(e); }
     };
@@ -3786,7 +3863,7 @@ async function telaMdfes() {
       { t: 'CIOT', v: (m) => esc(m.ciot ?? '—') },
       { t: 'Situação', v: (m) => seloDoc(m.status) },
     ],
-    aoClicar: (m, recarregar) => formMdfe(m.id, recarregar), vazio: 'Nenhum MDF-e. Gere a partir de uma viagem.',
+    aoClicar: (m, recarregar) => formMdfe(m.id, recarregar), vazio: 'Nenhum MDF-e. Gere a partir de uma viagem.', extra: 'Emitente e SEFAZ',
   });
 }
 
@@ -3801,6 +3878,8 @@ async function formMdfe(id, aoSalvar) {
   const marcados = new Set(m.ctes.map((c) => c.id));
   abrirDialogo(`<form id="form-mdfe" class="dialogo-largo">
     <h2>MDF-e ${m.numero ? `nº ${m.numero}` : '(rascunho)'} ${seloDoc(m.status)}</h2>
+    ${infoSefaz(m)}
+    ${m.status === 'ENCERRADO' ? `<p>Encerrado em ${fmtDataBr(m.encerrado_em)} · ${esc(m.encerramento_uf ?? '')} ${esc(m.encerramento_ibge ?? '')}</p>` : ''}
     ${pendenciasHtml(m.pendencias)}
     <fieldset ${editavel ? '' : 'disabled'} style="border:0;padding:0;margin:0">
     <h3>Veículo e condutor</h3>
@@ -3824,17 +3903,27 @@ async function formMdfe(id, aoSalvar) {
       <td>${c.numero ? `CT-e ${c.numero}` : 'Rascunho'} · viagem ${c.viagem_numero}</td><td>${esc(c.tomador_nome)}</td><td>${rotaTxt(c)}</td><td>${seloDoc(c.status)}</td></tr>`).join('')}</tbody></table>` : '<p class="dica">Nenhum CT-e disponível.</p>'}
     <label class="largo" style="margin-top:8px">Observação <input name="observacao" maxlength="1000" value="${esc(m.observacao ?? '')}"></label>
     </fieldset>
-    ${editavel ? AVISO_SEFAZ : m.status === 'AUTORIZADO' ? '<p class="dica">Encerre o MDF-e ao concluir a entrega no último município de descarga.</p>' : ''}
+    ${m.status === 'AUTORIZADO' ? '<p class="dica">Encerre o MDF-e ao concluir a entrega no último município de descarga. Enquanto estiver aberto, o veículo não pode ser usado em outro MDF-e para a mesma UF.</p>' : ''}
     <p class="erro" id="erro-mdfe"></p>
-    <div class="acoes">${editavel ? '<button class="primario" type="submit">Salvar</button><button type="button" id="mdfe-transmitir">Transmitir à SEFAZ</button><button type="button" id="mdfe-cancelar">Excluir rascunho</button>' : ''}
-      ${m.status === 'AUTORIZADO' ? '<button type="button" id="mdfe-encerrar" class="primario">Encerrar MDF-e</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
+    <div class="acoes">${editavel ? `<button class="primario" type="submit">Salvar</button><button type="button" id="mdfe-transmitir">Transmitir à SEFAZ</button>${m.numero ? '' : '<button type="button" id="mdfe-cancelar">Excluir rascunho</button>'}` : ''}
+      ${m.status === 'AUTORIZADO' ? '<button type="button" id="mdfe-encerrar" class="primario">Encerrar MDF-e</button><button type="button" id="mdfe-cancelar-sefaz">Cancelar na SEFAZ</button>' : ''}
+      ${m.tem_xml && m.status !== 'RASCUNHO' ? '<button type="button" id="mdfe-xml">Baixar XML</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
   </form>`, (dlg) => {
     const f = $('#form-mdfe'), erro = (e) => ($('#erro-mdfe').textContent = e ? mensagemErro(e) : '');
-    if (m.status === 'AUTORIZADO') $('#mdfe-encerrar').onclick = async () => {
-      const ibge = prompt('Código IBGE do município de encerramento:', m.descarga_ibge ?? '');
-      if (!ibge) return;
-      try { await api('POST', `/api/mdfes/${id}/encerrar`, { uf: m.uf_fim, ibge }); dlg.close(); aoSalvar?.(); } catch (e) { erro(e); }
-    };
+    const bx = $('#mdfe-xml');
+    if (bx) bx.onclick = () => baixar(`/api/mdfes/${id}/xml`, `MDFe-${m.chave}.xml`);
+    if (m.status === 'AUTORIZADO') {
+      $('#mdfe-encerrar').onclick = async () => {
+        const ibge = prompt(`Código IBGE do município de encerramento (UF ${m.uf_fim}):`, m.descarga_ibge ?? '');
+        if (!ibge) return;
+        try { await api('POST', `/api/mdfes/${id}/encerrar`, { uf: m.uf_fim, ibge, data: hoje() }); dlg.close(); aviso('MDF-e encerrado na SEFAZ.'); aoSalvar?.(); } catch (e) { erro(e); }
+      };
+      $('#mdfe-cancelar-sefaz').onclick = async () => {
+        const j = prompt('Justificativa do cancelamento (15 a 255 caracteres). Só é aceito antes do início da viagem:');
+        if (j === null) return;
+        try { await api('POST', `/api/mdfes/${id}/cancelar`, { justificativa: j }); dlg.close(); aviso('MDF-e cancelado na SEFAZ.'); aoSalvar?.(); } catch (e) { erro(e); }
+      };
+    }
     if (!editavel) return;
     f.onsubmit = async (ev) => {
       ev.preventDefault(); erro();
@@ -3847,8 +3936,20 @@ async function formMdfe(id, aoSalvar) {
         dlg.close(); aviso('MDF-e salvo.'); aoSalvar?.();
       } catch (e) { erro(e); }
     };
-    $('#mdfe-transmitir').onclick = async () => { erro(); try { await api('POST', `/api/mdfes/${id}/transmitir`); } catch (e) { erro(e); } };
-    $('#mdfe-cancelar').onclick = async () => {
+    const bt = $('#mdfe-transmitir');
+    bt.onclick = async () => {
+      erro(); bt.disabled = true; bt.textContent = 'Transmitindo…';
+      try {
+        const d = lerForm(f);
+        await api('PUT', `/api/mdfes/${id}`, { veiculo_id: d.veiculo_id ? Number(d.veiculo_id) : null, motorista_id: d.motorista_id ? Number(d.motorista_id) : null, ciot: d.ciot,
+          uf_ini: d.uf_ini, uf_fim: d.uf_fim, percurso: d.percurso, carregamento_cidade: d.carregamento_cidade, carregamento_ibge: d.carregamento_ibge,
+          descarga_cidade: d.descarga_cidade, descarga_ibge: d.descarga_ibge, observacao: d.observacao, cte_ids: [...dlg.querySelectorAll('[data-cte]:checked')].map((x) => Number(x.dataset.cte)) });
+        const r = await api('POST', `/api/mdfes/${id}/transmitir`);
+        dlg.close(); aviso(`MDF-e nº ${r.numero} autorizado${r.ambiente === 2 ? ' em homologação' : ''}. Protocolo ${r.protocolo}.`); aoSalvar?.(); formMdfe(id, aoSalvar);
+      } catch (e) { erro(e); bt.disabled = false; bt.textContent = 'Transmitir à SEFAZ'; }
+    };
+    const bd = $('#mdfe-cancelar');
+    if (bd) bd.onclick = async () => {
       if (!confirm('Excluir este rascunho de MDF-e?')) return;
       try { await api('POST', `/api/mdfes/${id}/cancelar`); dlg.close(); aoSalvar?.(); } catch (e) { erro(e); }
     };

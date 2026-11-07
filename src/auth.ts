@@ -75,7 +75,7 @@ const REGRAS: Regra[] = [
   { r: /^\/api\/empresas\/\d+\/tomadores(\/planilha\/(analisar|importar))?$|^\/api\/tomadores\/\d+$/, mod: ['tomadores'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/painel-transporte$/, mod: ['painel'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/ctes$/, mod: ['fiscal', 'faturas'] },
-  { r: /^\/api\/empresas\/\d+\/(ctes|mdfes|gnres)$|^\/api\/(ctes|mdfes|gnres)\/\d+(\/(transmitir|cancelar|encerrar|pagar))?$|^\/api\/viagens\/\d+\/(cte|mdfe)$/, mod: ['fiscal'] },
+  { r: /^\/api\/empresas\/\d+\/(ctes|mdfes|gnres|emitente-transporte|sefaz-cte-status|sefaz-mdfe-status)$|^\/api\/(ctes|mdfes|gnres)\/\d+(\/(transmitir|cancelar|encerrar|pagar|xml))?$|^\/api\/viagens\/\d+\/(cte|mdfe)$/, mod: ['fiscal'] },
   { r: /^\/api\/empresas\/\d+\/faturas-frete(\/ctes-livres)?$|^\/api\/faturas-frete\/\d+(\/(cobranca|baixar|cancelar))?$/, mod: ['faturas'] },
   { r: /^\/api\/empresas\/\d+\/(pagamentos-frete|acertos)$|^\/api\/pagamentos-frete\/\d+$|^\/api\/viagens\/\d+\/acerto(\/(fechar|reabrir))?$/, mod: ['acertos'] },
   { m: 'GET', r: /^\/api\/empresas\/\d+\/viagens$/, mod: ['viagens', 'fiscal', 'acertos'] },

@@ -1058,6 +1058,37 @@ const migracoes: string[] = [
     litros REAL,
     pago_pelo_motorista INTEGER NOT NULL DEFAULT 1
   );`,
+  // Emissão do CT-e/MDF-e na SEFAZ: dados do emitente que o NFS-e não pedia, numeração por ambiente, XML e protocolos.
+  `ALTER TABLE empresas ADD COLUMN inscricao_estadual TEXT;
+  ALTER TABLE empresas ADD COLUMN rntrc TEXT;
+  ALTER TABLE empresas ADD COLUMN cep TEXT;
+  ALTER TABLE empresas ADD COLUMN logradouro TEXT;
+  ALTER TABLE empresas ADD COLUMN numero_end TEXT;
+  ALTER TABLE empresas ADD COLUMN complemento TEXT;
+  ALTER TABLE empresas ADD COLUMN bairro TEXT;
+  ALTER TABLE empresas ADD COLUMN cidade TEXT;
+  ALTER TABLE empresas ADD COLUMN fone TEXT;
+  ALTER TABLE empresas ADD COLUMN serie_cte INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE empresas ADD COLUMN serie_mdfe INTEGER NOT NULL DEFAULT 1;
+
+  ALTER TABLE ctes ADD COLUMN tp_amb INTEGER;
+  ALTER TABLE ctes ADD COLUMN cct TEXT;
+  ALTER TABLE ctes ADD COLUMN dh_emissao TEXT;
+  ALTER TABLE ctes ADD COLUMN xml TEXT;
+  ALTER TABLE ctes ADD COLUMN ultimo_retorno TEXT;
+  ALTER TABLE ctes ADD COLUMN cancelamento_protocolo TEXT;
+  ALTER TABLE ctes ADD COLUMN cancelamento_xml TEXT;
+  ALTER TABLE ctes ADD COLUMN cancelado_em TEXT;
+  CREATE UNIQUE INDEX ux_ctes_numero ON ctes(empresa_id, tp_amb, serie, numero);
+
+  ALTER TABLE mdfes ADD COLUMN tp_amb INTEGER;
+  ALTER TABLE mdfes ADD COLUMN cmdf TEXT;
+  ALTER TABLE mdfes ADD COLUMN dh_emissao TEXT;
+  ALTER TABLE mdfes ADD COLUMN xml TEXT;
+  ALTER TABLE mdfes ADD COLUMN ultimo_retorno TEXT;
+  ALTER TABLE mdfes ADD COLUMN evento_protocolo TEXT;
+  ALTER TABLE mdfes ADD COLUMN evento_xml TEXT;
+  CREATE UNIQUE INDEX ux_mdfes_numero ON mdfes(empresa_id, tp_amb, serie, numero);`,
 ];
 
 export function migrar(): void {

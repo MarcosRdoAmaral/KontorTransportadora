@@ -4,6 +4,8 @@ import { db } from '../db.js';
 import { ErroNegocio } from './emissao.js';
 import { checarEmpresa } from './transporte.js';
 import { soDigitos } from '../nfse/validacao.js';
+import { transmitirMdfe, encerrarMdfe, cancelarMdfeAutorizado, statusServicoMdfe } from '../cte/emissao-mdfe.js';
+import { transmitirCte, cancelarCteAutorizado, statusServicoCte, pendenciasEmitente, pendenciasPartes, ufDaEmpresa } from '../cte/emissao-cte.js';
 
 /**
  * CT-e, MDF-e e GNRE da Transportadora.
@@ -19,7 +21,6 @@ const Texto = (max: number) => z.string().trim().max(max).nullish().transform((v
 const Uf = z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, 'UF inválida');
 const Ibge = z.string().nullish().transform((v) => (v ? soDigitos(v) : null)).refine((v) => v === null || v.length === 7, 'Código IBGE deve ter 7 dígitos');
 
-export const TRANSMISSAO_INDISPONIVEL = 'A transmissão à SEFAZ ainda não está disponível nesta versão. O documento fica como rascunho, conferido, até a liberação da emissão em homologação com o certificado A1.';
 
 function doRegistro<T = any>(req: any, tabela: string, id: number): T {
   const r = db.prepare(`SELECT * FROM ${tabela} WHERE id = ?`).get(id) as any;
@@ -37,7 +38,7 @@ export function aliquotaSugerida(ufIni: string, ufFim: string) {
   return 12;
 }
 
-export const CSTS = ['00', '20', '40', '41', '51', '60', '90', 'SN'] as const;
+export const CSTS = ['00', '40', '41', '51', '90', 'SN'] as const;
 const CteEdicao = z.object({
   cfop: z.string().regex(/^[56]3(5[1-9]|60)$/, 'CFOP de prestação de transporte: 5351 a 5360 ou 6351 a 6360'),
   tomador_papel: z.enum(['REMETENTE', 'DESTINATARIO', 'OUTROS']),
@@ -59,8 +60,7 @@ function pendenciasCte(c: any): string[] {
   if (c.status !== 'RASCUNHO') return [];
   const p: string[] = [];
   const emp = db.prepare('SELECT * FROM empresas WHERE id = ?').get(c.empresa_id) as any;
-  if (!emp.cert_validade) p.push('A empresa não tem certificado A1 cadastrado.');
-  else if (emp.cert_validade < hoje()) p.push('O certificado A1 da empresa está vencido.');
+  p.push(...pendenciasEmitente(emp));
   const tom = db.prepare('SELECT * FROM embarcadores WHERE id = ?').get(c.embarcador_id) as any;
   if (!tom.cod_municipio || !tom.logradouro) p.push(`Endereço completo do tomador ${tom.nome} (logradouro e código IBGE).`);
   if (tom.ind_contribuinte === 1 && !tom.inscricao_estadual) p.push(`Inscrição estadual do tomador ${tom.nome}.`);
@@ -70,13 +70,17 @@ function pendenciasCte(c: any): string[] {
   if (!nfes.n) p.push('A viagem não tem NF-e vinculada.');
   else if (nfes.sem) p.push(`${nfes.sem} NF-e da viagem só com a chave (importe o XML).`);
   if (!c.remetente_documento || !c.destinatario_documento) p.push('Remetente e destinatário (vêm do XML da NF-e).');
+  else p.push(...pendenciasPartes(c.viagem_id));
+  if (c.tomador_papel === 'OUTROS' && (!tom.cep || !tom.bairro)) p.push(`CEP e bairro do tomador ${tom.nome}.`);
   return p;
 }
 
 function cteCompleto(id: number) {
   const c = db.prepare(`${SELECT_CTE} WHERE c.id = ?`).get(id) as any;
   const nfes = db.prepare('SELECT chave, numero, valor, peso_kg, (xml IS NOT NULL) AS completa FROM viagem_nfes WHERE viagem_id = ? ORDER BY id').all(c.viagem_id);
-  return { ...c, nfes, pendencias: pendenciasCte(c) };
+  const emp = db.prepare('SELECT ambiente FROM empresas WHERE id = ?').get(c.empresa_id) as any;
+  const { xml, cancelamento_xml, ...resto } = c;
+  return { ...resto, tem_xml: !!xml, ambiente: c.tp_amb ?? emp.ambiente, nfes, pendencias: pendenciasCte(c) };
 }
 
 /** Monta o rascunho do CT-e com os dados da viagem: tomador, rota, carga, valor e ICMS sugerido. */
@@ -92,9 +96,10 @@ function criarCteDaViagem(viagemId: number) {
   const papel = n?.dd && n.dd === emb.documento ? 'DESTINATARIO' : n?.ed && n.ed !== emb.documento ? 'OUTROS' : 'REMETENTE';
   const simples = emp.op_simp_nac !== 1;
   const cfop = `${v.origem_uf === v.destino_uf ? '5' : '6'}353`;
-  return Number(db.prepare(`INSERT INTO ctes (empresa_id, viagem_id, cfop, tomador_papel, embarcador_id, remetente_documento, remetente_nome, destinatario_documento, destinatario_nome,
+  const serie = (db.prepare('SELECT serie_cte FROM empresas WHERE id = ?').get(v.empresa_id) as any).serie_cte ?? 1;
+  return Number(db.prepare(`INSERT INTO ctes (empresa_id, viagem_id, serie, cfop, tomador_papel, embarcador_id, remetente_documento, remetente_nome, destinatario_documento, destinatario_nome,
       origem_cidade, origem_uf, origem_ibge, destino_cidade, destino_uf, destino_ibge, produto, valor_carga, peso_kg, valor_prestacao, cst_icms, aliquota_icms)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(v.empresa_id, v.id, cfop, papel, v.embarcador_id, n?.ed ?? null, n?.en ?? null, n?.dd ?? null, n?.dn ?? null,
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(v.empresa_id, v.id, serie, cfop, papel, v.embarcador_id, n?.ed ?? null, n?.en ?? null, n?.dd ?? null, n?.dn ?? null,
     v.origem_cidade, v.origem_uf, v.origem_ibge, v.destino_cidade, v.destino_uf, v.destino_ibge, v.produto, tot.valor, tot.peso, v.valor_frete,
     simples ? 'SN' : '00', simples ? 0 : aliquotaSugerida(v.origem_uf, v.destino_uf)).lastInsertRowid);
 }
@@ -124,8 +129,7 @@ const SELECT_MDFE = `SELECT m.*, ve.placa, ve.vinculo, mo.nome AS motorista_nome
 function pendenciasMdfe(m: any): string[] {
   if (m.status !== 'RASCUNHO') return [];
   const p: string[] = [];
-  const emp = db.prepare('SELECT cert_validade FROM empresas WHERE id = ?').get(m.empresa_id) as any;
-  if (!emp.cert_validade) p.push('A empresa não tem certificado A1 cadastrado.');
+  p.push(...pendenciasEmitente(db.prepare('SELECT * FROM empresas WHERE id = ?').get(m.empresa_id)));
   if (!m.veiculo_id) p.push('Veículo de tração.');
   if (!m.motorista_id) p.push('Motorista (condutor).');
   if (!m.carregamento_ibge || !m.descarga_ibge) p.push('Código IBGE do município de carregamento e de descarga.');
@@ -147,7 +151,9 @@ function mdfeCompleto(id: number) {
   const m = db.prepare(`${SELECT_MDFE} WHERE m.id = ?`).get(id) as any;
   const ctes = db.prepare(`SELECT c.id, c.status, c.numero, c.chave, c.valor_prestacao, c.valor_carga, c.peso_kg, c.destino_cidade, c.destino_uf, e.nome AS tomador_nome, v.numero AS viagem_numero
     FROM mdfe_ctes x JOIN ctes c ON c.id = x.cte_id JOIN embarcadores e ON e.id = c.embarcador_id JOIN viagens v ON v.id = c.viagem_id WHERE x.mdfe_id = ? ORDER BY c.id`).all(id);
-  return { ...m, ctes, pendencias: pendenciasMdfe(m) };
+  const emp = db.prepare('SELECT ambiente FROM empresas WHERE id = ?').get(m.empresa_id) as any;
+  const { xml, evento_xml, ...resto } = m;
+  return { ...resto, tem_xml: !!xml, ambiente: m.tp_amb ?? emp.ambiente, ctes, pendencias: pendenciasMdfe(m) };
 }
 
 function gravarMdfe(empresaId: number, d: z.infer<typeof MdfeEdicao>, mdfeId: number | null) {
@@ -164,7 +170,8 @@ function gravarMdfe(empresaId: number, d: z.infer<typeof MdfeEdicao>, mdfeId: nu
   db.exec('BEGIN');
   try {
     if (mdfeId === null) {
-      mdfeId = Number(db.prepare(`INSERT INTO mdfes (empresa_id, ${cols.join(', ')}) VALUES (?${', ?'.repeat(cols.length)})`).run(empresaId, ...cols.map((k) => campos[k] as any)).lastInsertRowid);
+      const serie = (db.prepare('SELECT serie_mdfe FROM empresas WHERE id = ?').get(empresaId) as any).serie_mdfe ?? 1;
+      mdfeId = Number(db.prepare(`INSERT INTO mdfes (empresa_id, serie, ${cols.join(', ')}) VALUES (?, ?${', ?'.repeat(cols.length)})`).run(empresaId, serie, ...cols.map((k) => campos[k] as any)).lastInsertRowid);
     } else {
       db.prepare(`UPDATE mdfes SET ${cols.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...cols.map((k) => campos[k] as any), mdfeId);
       db.prepare('DELETE FROM mdfe_ctes WHERE mdfe_id = ?').run(mdfeId);
@@ -200,7 +207,7 @@ export function registrarFiscalTransporte(api: FastifyInstance) {
     if (q.status && ['RASCUNHO', 'AUTORIZADO', 'CANCELADO'].includes(q.status)) { f.push('c.status = ?'); a.push(q.status); }
     const b = String(q.q ?? '').trim();
     if (b) { f.push('(e.nome LIKE ? OR CAST(v.numero AS TEXT) = ? OR CAST(c.numero AS TEXT) = ? OR c.destino_cidade LIKE ?)'); a.push(`%${b}%`, b, b, `%${b}%`); }
-    return db.prepare(`${SELECT_CTE} WHERE ${f.join(' AND ')} ORDER BY c.id DESC LIMIT 500`).all(...a);
+    return (db.prepare(`${SELECT_CTE} WHERE ${f.join(' AND ')} ORDER BY c.id DESC LIMIT 500`).all(...a) as any[]).map(({ xml, cancelamento_xml, ...x }) => ({ ...x, tem_xml: !!xml }));
   });
   api.post('/api/viagens/:id/cte', async (req) => {
     const v = doRegistro(req, 'viagens', Number((req.params as any).id));
@@ -219,18 +226,59 @@ export function registrarFiscalTransporte(api: FastifyInstance) {
   });
   api.post('/api/ctes/:id/transmitir', async (req) => {
     const c = doRegistro(req, 'ctes', Number((req.params as any).id));
-    const p = pendenciasCte(c);
-    if (p.length) throw new ErroNegocio(`Antes de transmitir: ${p.join(' ')}`);
-    throw new ErroNegocio(TRANSMISSAO_INDISPONIVEL);
+    const r = await transmitirCte(c.id, pendenciasCte(c));
+    return { ...cteCompleto(c.id), retorno: r };
   });
   api.post('/api/ctes/:id/cancelar', async (req) => {
     const c = doRegistro(req, 'ctes', Number((req.params as any).id));
-    if (c.status === 'AUTORIZADO') throw new ErroNegocio('CT-e autorizado é cancelado por evento na SEFAZ (disponível junto com a transmissão).');
     if (c.status === 'CANCELADO') return cteCompleto(c.id);
     if (db.prepare("SELECT 1 FROM fatura_ctes x JOIN faturas_frete f ON f.id = x.fatura_id WHERE x.cte_id = ? AND f.status <> 'CANCELADA'").get(c.id)) throw new ErroNegocio('Este CT-e está numa fatura. Cancele a fatura antes.');
-    db.prepare("UPDATE ctes SET status = 'CANCELADO' WHERE id = ?").run(c.id);
+    if (db.prepare("SELECT 1 FROM mdfe_ctes x JOIN mdfes m ON m.id = x.mdfe_id WHERE x.cte_id = ? AND m.status = 'AUTORIZADO'").get(c.id)) throw new ErroNegocio('Este CT-e está num MDF-e aberto. Encerre ou cancele o MDF-e antes.');
+    if (c.status === 'AUTORIZADO') {
+      const { justificativa } = z.object({ justificativa: z.string().default('') }).parse(req.body ?? {});
+      await cancelarCteAutorizado(c.id, justificativa);
+    } else {
+      db.prepare("UPDATE ctes SET status = 'CANCELADO' WHERE id = ?").run(c.id);
+    }
     db.prepare("DELETE FROM mdfe_ctes WHERE cte_id = ? AND mdfe_id IN (SELECT id FROM mdfes WHERE status = 'RASCUNHO')").run(c.id);
     return cteCompleto(c.id);
+  });
+  api.get('/api/ctes/:id/xml', async (req, reply) => {
+    const c = doRegistro(req, 'ctes', Number((req.params as any).id));
+    if (!c.xml) throw new ErroNegocio('Este CT-e ainda não tem XML.', 404);
+    reply.header('Content-Type', 'application/xml; charset=utf-8').header('Content-Disposition', `attachment; filename="CTe-${c.chave}.xml"`);
+    return c.xml;
+  });
+
+  // emitente (dados que o CT-e/MDF-e exigem) e teste de comunicação
+  const Emitente = z.object({
+    inscricao_estadual: z.string().trim().toUpperCase().transform((v) => v.replace(/[^0-9A-Z]/g, '')).refine((v) => v.length >= 2, 'Informe a inscrição estadual'),
+    rntrc: z.string().transform(soDigitos).refine((v) => v.length === 8, 'RNTRC deve ter 8 dígitos'),
+    cep: z.string().nullish().transform((v) => (v ? soDigitos(v) : null)),
+    logradouro: z.string().trim().min(2).max(60), numero_end: z.string().trim().max(60).nullish(), complemento: z.string().trim().max(60).nullish(),
+    bairro: z.string().trim().min(2).max(60), cidade: z.string().trim().min(2).max(60), uf: Uf,
+    fone: z.string().nullish().transform((v) => (v ? soDigitos(v) : null)),
+    serie_cte: z.number().int().min(0).max(999).default(1), serie_mdfe: z.number().int().min(0).max(999).default(1),
+    ambiente: z.union([z.literal(1), z.literal(2)]),
+  });
+  api.get('/api/empresas/:id/emitente-transporte', async (req) => {
+    const id = Number((req.params as any).id);
+    checarEmpresa(req, id);
+    const e = db.prepare('SELECT documento, razao_social, cod_municipio, uf, inscricao_estadual, rntrc, cep, logradouro, numero_end, complemento, bairro, cidade, fone, serie_cte, serie_mdfe, ambiente, cert_validade, cert_titular FROM empresas WHERE id = ?').get(id) as any;
+    return { ...e, uf: ufDaEmpresa(e), pendencias: pendenciasEmitente(db.prepare('SELECT * FROM empresas WHERE id = ?').get(id)) };
+  });
+  api.put('/api/empresas/:id/emitente-transporte', async (req) => {
+    const id = Number((req.params as any).id);
+    checarEmpresa(req, id);
+    const d = Emitente.parse(req.body);
+    db.prepare('UPDATE empresas SET inscricao_estadual=?, rntrc=?, cep=?, logradouro=?, numero_end=?, complemento=?, bairro=?, cidade=?, uf=?, fone=?, serie_cte=?, serie_mdfe=?, ambiente=? WHERE id=?')
+      .run(d.inscricao_estadual, d.rntrc, d.cep, d.logradouro, d.numero_end ?? null, d.complemento ?? null, d.bairro, d.cidade, d.uf, d.fone, d.serie_cte, d.serie_mdfe, d.ambiente, id);
+    return { ok: true };
+  });
+  api.get('/api/empresas/:id/sefaz-cte-status', async (req) => {
+    const id = Number((req.params as any).id);
+    checarEmpresa(req, id);
+    return statusServicoCte(id);
   });
 
   // MDF-e
@@ -239,7 +287,7 @@ export function registrarFiscalTransporte(api: FastifyInstance) {
     checarEmpresa(req, id);
     const st = (req.query as any).status;
     const ok = ['RASCUNHO', 'AUTORIZADO', 'ENCERRADO', 'CANCELADO'].includes(st);
-    return db.prepare(`${SELECT_MDFE} WHERE m.empresa_id = ?${ok ? ' AND m.status = ?' : ''} ORDER BY m.id DESC LIMIT 500`).all(...(ok ? [id, st] : [id]));
+    return (db.prepare(`${SELECT_MDFE} WHERE m.empresa_id = ?${ok ? ' AND m.status = ?' : ''} ORDER BY m.id DESC LIMIT 500`).all(...(ok ? [id, st] : [id])) as any[]).map(({ xml, evento_xml, ...x }) => x);
   });
   api.post('/api/viagens/:id/mdfe', async (req) => {
     const v = doRegistro(req, 'viagens', Number((req.params as any).id));
@@ -263,21 +311,35 @@ export function registrarFiscalTransporte(api: FastifyInstance) {
   });
   api.post('/api/mdfes/:id/transmitir', async (req) => {
     const m = doRegistro(req, 'mdfes', Number((req.params as any).id));
-    const p = pendenciasMdfe(m);
-    if (p.length) throw new ErroNegocio(`Antes de transmitir: ${p.join(' ')}`);
-    throw new ErroNegocio(TRANSMISSAO_INDISPONIVEL);
+    await transmitirMdfe(m.id, pendenciasMdfe(m));
+    return mdfeCompleto(m.id);
   });
   api.post('/api/mdfes/:id/encerrar', async (req) => {
     const m = doRegistro(req, 'mdfes', Number((req.params as any).id));
     if (m.status !== 'AUTORIZADO') throw new ErroNegocio('Só MDF-e autorizado pode ser encerrado.');
-    const d = z.object({ uf: Uf, ibge: Ibge.refine((v) => v !== null, 'Informe o município de encerramento'), data: Data.default(hoje()) }).parse(req.body);
-    throw new ErroNegocio(`${TRANSMISSAO_INDISPONIVEL} (encerramento em ${d.uf})`);
+    const d = z.object({ uf: Uf, ibge: Ibge.refine((v) => v !== null, 'Informe o município de encerramento'), data: Data.nullish() }).parse(req.body);
+    await encerrarMdfe(m.id, d.uf, d.ibge!, d.data ?? hoje());
+    return mdfeCompleto(m.id);
   });
   api.post('/api/mdfes/:id/cancelar', async (req) => {
     const m = doRegistro(req, 'mdfes', Number((req.params as any).id));
-    if (m.status !== 'RASCUNHO') throw new ErroNegocio('MDF-e autorizado é cancelado ou encerrado por evento na SEFAZ.');
-    db.prepare("UPDATE mdfes SET status = 'CANCELADO' WHERE id = ?").run(m.id);
+    if (m.status === 'AUTORIZADO') {
+      const { justificativa } = z.object({ justificativa: z.string().default('') }).parse(req.body ?? {});
+      await cancelarMdfeAutorizado(m.id, justificativa);
+    } else if (m.status === 'RASCUNHO') db.prepare("UPDATE mdfes SET status = 'CANCELADO' WHERE id = ?").run(m.id);
+    else throw new ErroNegocio('MDF-e encerrado ou cancelado não pode ser cancelado.');
     return mdfeCompleto(m.id);
+  });
+  api.get('/api/mdfes/:id/xml', async (req, reply) => {
+    const m = doRegistro(req, 'mdfes', Number((req.params as any).id));
+    if (!m.xml) throw new ErroNegocio('Este MDF-e ainda não tem XML.', 404);
+    reply.header('Content-Type', 'application/xml; charset=utf-8').header('Content-Disposition', `attachment; filename="MDFe-${m.chave}.xml"`);
+    return m.xml;
+  });
+  api.get('/api/empresas/:id/sefaz-mdfe-status', async (req) => {
+    const id = Number((req.params as any).id);
+    checarEmpresa(req, id);
+    return statusServicoMdfe(id);
   });
 
   // GNRE
