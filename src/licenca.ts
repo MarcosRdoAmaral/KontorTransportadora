@@ -177,6 +177,13 @@ export function statusLicenca() {
     mensagem: 'O período de teste terminou. Informe o código do computador ao suporte para receber o código de ativação.' };
 }
 
+/** Código de ativação guardado (usado pelo relay de WhatsApp para provar a licença). */
+export function codigoDeLicenca(): string | null {
+  const l = linha();
+  if (!l.codigo) return null;
+  try { lerCodigo(l.codigo); return l.codigo as string; } catch { return null; }
+}
+
 export function ativarLicenca(codigo: string) {
   const d = lerCodigo(codigo);
   if (soHex(d.maquina) !== soHex(codigoDoComputador())) throw new ErroNegocio('Este código foi gerado para outro computador.');

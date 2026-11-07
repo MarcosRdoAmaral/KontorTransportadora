@@ -1147,7 +1147,7 @@ async function telaCobrancas() {
       pronto && c.status !== 'CANCELADO' ? `<button data-demo="${c.id}">Demonstrativo</button>` : '',
       c.nosso_numero ? `<button data-boleto="${c.id}">Boleto</button>` : '',
       podeEditar && ativo(c) && pronto ? `<button data-email="${c.id}">E-mail</button>` : '',
-      ativo(c) ? `<button data-wa="${c.id}">WhatsApp</button>` : '',
+      ativo(c) || c.status === 'PAGO' ? `<button data-wa="${c.id}">WhatsApp</button>` : '',
     ].join('');
     const mais = [
       c.forma === 'PIX' && podeEditar && ativo(c) && c.pix_copia_cola ? `<button data-pix="${c.id}">Trocar o Pix</button>` : '',
@@ -1349,15 +1349,24 @@ async function telaCobrancas() {
   conteudo.querySelectorAll('[data-wa]').forEach((b) => (b.onclick = async () => {
     const c = lista.find((x) => x.id === Number(b.dataset.wa));
     const m = await api('GET', `/api/empresas/${estado.empresaId}/modelos-whatsapp`);
-    const atrasado = c.vencimento < hoje;
+    const pago = c.status === 'PAGO';
+    const atrasado = !pago && c.vencimento < hoje;
+    const nomeEmpresa = empresa()?.nome_fantasia || empresa()?.razao_social || '';
+    const textoInicial = pago ? `Olá, ${c.tomador_nome}! Recebemos o pagamento de ${brl(c.valor_pago ?? c.valor)}. Obrigado! ${nomeEmpresa}` : aplicarModelo(atrasado ? m.atraso : m.lembrete, c);
     abrirDialogo(`
       <form id="form-wa"><h2>WhatsApp para ${esc(c.tomador_nome)}</h2>
-        <p class="sutil">${atrasado ? 'Cobrança vencida: usando o modelo de atraso.' : 'Usando o modelo de lembrete.'} Revise o texto; o WhatsApp abre com a mensagem pronta e você só confirma o envio.</p>
+        <p class="sutil">${pago ? 'Cobrança paga: mensagem de confirmação de pagamento.' : atrasado ? 'Cobrança vencida: usando o modelo de atraso.' : 'Usando o modelo de lembrete.'} Revise o texto. Você pode abrir o seu WhatsApp com a mensagem pronta ou enviar direto pelo sistema.</p>
         <label>WhatsApp do cliente (com DDD) <input name="fone" required value="${esc(c.tomador_fone ?? '')}" placeholder="(47) 99999-9999"></label>
-        <label>Mensagem <textarea name="texto" rows="7">${esc(aplicarModelo(atrasado ? m.atraso : m.lembrete, c))}</textarea></label>
+        <label>Mensagem <textarea name="texto" rows="7">${esc(textoInicial)}</textarea></label>
+        ${campoAceiteWhatsapp(c.tomador_whatsapp_aceite)}
         <p class="erro" id="erro-wa"></p>
-        <div class="acoes"><button class="primario" type="submit">Abrir WhatsApp</button>${c.nosso_numero ? '<button type="button" id="wa-pdf">Baixar boleto para anexar</button>' : ''}${c.forma === 'PIX' && c.pix_copia_cola ? '<button type="button" id="wa-demo">Baixar demonstrativo para anexar</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
+        <div class="acoes"><button class="primario" type="button" id="wa-sistema">Enviar pelo sistema</button><button type="submit">Abrir WhatsApp</button>${c.nosso_numero ? '<button type="button" id="wa-pdf">Baixar boleto para anexar</button>' : ''}${c.forma === 'PIX' && c.pix_copia_cola ? '<button type="button" id="wa-demo">Baixar demonstrativo para anexar</button>' : ''}<button type="button" data-fechar>Fechar</button></div>
       </form>`, () => {
+      $('#wa-sistema').onclick = async (ev) => {
+        const ok = await enviarPeloSistema($('#form-wa'), { tipo: pago ? 'pagamento' : atrasado ? 'atraso' : 'lembrete', tomadorId: c.tomador_id, cobrancaId: c.id,
+          variaveis: pago ? { 1: c.tomador_nome, 2: brl(c.valor_pago ?? c.valor), 3: nomeEmpresa } : { 1: c.tomador_nome, 2: brl(c.valor), 3: dataBr(c.vencimento), 4: nomeEmpresa } }, '#erro-wa', ev.target);
+        if (ok) document.querySelector('dialog[open]')?.close();
+      };
       const pdf = $('#wa-pdf'); if (pdf) pdf.onclick = () => baixar(`/api/cobrancas/${c.id}/boleto`, `Boleto_${c.id}.pdf`);
       const dm = $('#wa-demo'); if (dm) dm.onclick = () => baixar(`/api/cobrancas/${c.id}/demonstrativo`, `Demonstrativo_${c.id}.pdf`);
       $('#form-wa').onsubmit = (ev) => {
@@ -2820,9 +2829,14 @@ async function telaNota(id) {
           <label>Celular do cliente (com DDD) <input name="fone" required inputmode="tel" placeholder="(47) 99999-9999" value="${esc(n.tomador_fone ?? '')}"></label>
           <label class="largo">Mensagem <textarea name="texto" rows="5">${esc(texto)}</textarea></label>
         </div>
+        ${n.status === 'CANCELADA' ? '' : campoAceiteWhatsapp(n.tomador_whatsapp_aceite)}
         <p class="erro" id="erro-whats"></p>
-        <div class="acoes"><button class="primario" type="submit">Abrir WhatsApp</button><button type="button" id="w-pdf">Baixar PDF para anexar</button><button type="button" data-fechar>Fechar</button></div>
+        <div class="acoes">${n.status === 'CANCELADA' || !n.tomador_id ? '' : '<button class="primario" type="button" id="w-sistema">Enviar pelo sistema</button>'}<button type="submit">Abrir WhatsApp</button><button type="button" id="w-pdf">Baixar PDF para anexar</button><button type="button" data-fechar>Fechar</button></div>
       </form>`, (d) => {
+      $('#w-sistema') && ($('#w-sistema').onclick = async (ev) => {
+        const ok = await enviarPeloSistema($('#form-whats'), { tipo: 'nota', tomadorId: n.tomador_id, notaId: id, variaveis: { 1: n.tomador_nome || 'cliente', 2: String(n.n_nfse), 3: brl(n.valor_servico), 4: nome, 5: link } }, '#erro-whats', ev.target);
+        if (ok) d.close();
+      });
       $('#w-pdf').onclick = () => baixar(`/api/notas/${id}/danfse`, `DANFSe_${n.n_nfse}.pdf`);
       $('#form-whats').onsubmit = (ev) => {
         ev.preventDefault();
@@ -3128,6 +3142,21 @@ async function telaTomadores() {
   conteudo.querySelectorAll('.tl-pag [data-pg]').forEach((b) => (b.onclick = () => { telaTomadores.pg = Number(b.dataset.pg); telaTomadores(); }));
   conteudo.querySelectorAll('#filtros-cli a').forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); telaTomadores.filtro = a.dataset.f; telaTomadores(); }));
   conteudo.querySelectorAll('tr[data-i]').forEach((tr) => (tr.onclick = () => formTomador(pg.itens[tr.dataset.i], telaTomadores)));
+}
+
+/** Envio automático de WhatsApp pelo serviço da Kontor (Twilio): confirma a autorização do cliente e mostra o resultado. */
+function campoAceiteWhatsapp(jaAceitou) {
+  return jaAceitou ? '' : '<label class="check"><input type="checkbox" name="aceite"> O cliente autorizou receber mensagens por WhatsApp</label>';
+}
+async function enviarPeloSistema(form, pedido, erroSel, botao) {
+  const erro = $(erroSel); erro.textContent = '';
+  const aceite = form.aceite ? form.aceite.checked : true;
+  botao.disabled = true; const rotulo = botao.textContent; botao.textContent = 'Enviando…';
+  try {
+    const r = await api('POST', `/api/empresas/${estado.empresaId}/whatsapp/enviar`, { ...pedido, fone: form.fone.value, texto: form.texto.value, aceite });
+    aviso(`Mensagem enviada por WhatsApp.${r.restante != null ? ` Restam ${r.restante} neste mês.` : ''}`);
+    return true;
+  } catch (e) { erro.textContent = mensagemErro(e); botao.disabled = false; botao.textContent = rotulo; return false; }
 }
 
 /** Importa clientes de uma planilha (xlsx/csv) com CNPJ e, se houver, o nome; o sistema consulta cada CNPJ e deixa o cadastro marcado para conferir. */
@@ -4675,7 +4704,7 @@ const corpoConfig = () => $('#cfg-corpo') ?? conteudo;
 async function telaConfig(aba) {
   const adm = estado.usuario.tipo === 'adm';
   const abas = [
-    ['conta', 'Minha conta', true], ['usuarios', 'Usuários e acessos', adm], ['email', 'E-mail', adm], ['modelos', 'Modelos de e-mail', adm],
+    ['conta', 'Minha conta', true], ['usuarios', 'Usuários e acessos', adm], ['email', 'E-mail', adm], ['modelos', 'Modelos de e-mail', adm], ['whatsapp', 'WhatsApp', adm],
     ['aparencia', 'Aparência', true], ['backup', 'Backup', adm], ['contabilidade', 'Contabilidade', adm], ['licenca', 'Licença', true], ['atualizacoes', 'Atualizações', true],
   ].filter((x) => x[2]);
   if (!abas.some((x) => x[0] === aba)) aba = abas[0][0];
@@ -4683,8 +4712,25 @@ async function telaConfig(aba) {
     ${cabecaTela('config', 'Configurações', `Ajustes gerais do sistema${adm ? '' : ' e da sua conta'} e preferências da sua operação.`)}
     <nav class="abas" aria-label="Configurações">${abas.map(([k, nome]) => `<a href="#/config/${k}" class="${k === aba ? 'ativo' : ''}">${nome}</a>`).join('')}</nav>
     <div id="cfg-corpo"></div>`;
-  const tela = { conta: telaMinhaConta, usuarios: telaUsuarios, email: telaEmail, modelos: telaModelosEmail, aparencia: telaAparencia, backup: telaBackup, contabilidade: telaContabilidade, licenca: telaLicenca, atualizacoes: telaAtualizacoes }[aba];
+  const tela = { conta: telaMinhaConta, usuarios: telaUsuarios, email: telaEmail, modelos: telaModelosEmail, whatsapp: telaWhatsapp, aparencia: telaAparencia, backup: telaBackup, contabilidade: telaContabilidade, licenca: telaLicenca, atualizacoes: telaAtualizacoes }[aba];
   await tela();
+}
+
+const NOME_TIPO_WA = { lembrete: 'Lembrete de vencimento', atraso: 'Cobrança em atraso', nota: 'Nota emitida', pagamento: 'Pagamento confirmado' };
+async function telaWhatsapp() {
+  const h = await api('GET', `/api/empresas/${estado.empresaId}/whatsapp/historico`);
+  const falhas = h.filter((x) => x.status === 'FALHA').length;
+  corpoConfig().innerHTML = `
+    <h2>WhatsApp automático</h2>
+    <p class="sutil">As mensagens saem pelo serviço de WhatsApp da Kontor, sem você configurar nada. Use o botão <strong>Enviar pelo sistema</strong> em Cobranças (lembrete, atraso e pagamento) e em Notas emitidas (nota emitida). O cliente só recebe se você confirmar que ele autorizou receber mensagens. Há uma cota mensal de mensagens por licença.</p>
+    ${cartoesKpi([
+      { ic: 'o-zap', tom: 'verde', valor: h.length - falhas, rotulo: 'Enviadas (últimas 100)' },
+      { ic: 'tl-alerta', tom: falhas ? 'vermelho' : 'neutro', valor: falhas, rotulo: 'Com falha' },
+    ])}
+    ${h.length ? `<div class="tl-tabela solta"><div class="rolagem"><table><thead><tr><th>Data</th><th>Tipo</th><th>Cliente</th><th>Número</th><th>Situação</th></tr></thead><tbody>
+      ${h.map((x) => `<tr><td>${dataHoraBr(x.criado_em.replace(' ', 'T') + 'Z')}</td><td>${esc(NOME_TIPO_WA[x.tipo] ?? x.tipo)}</td><td>${esc(x.cliente ?? '—')}</td><td>${esc(x.destino)}</td>
+        <td>${x.status === 'FALHA' ? `<span class="cor-vermelho" title="${esc(x.erro ?? '')}">Falhou</span><br><span class="dica">${esc(x.erro ?? '')}</span>` : '<span class="cor-verde">Enviada</span>'}</td></tr>`).join('')}
+    </tbody></table></div></div>` : vazioTela('o-zap', 'Nenhuma mensagem enviada', 'Quando você enviar um WhatsApp pelo sistema, o histórico aparece aqui.')}`;
 }
 
 function telaMinhaConta() {

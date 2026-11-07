@@ -429,6 +429,7 @@ export function obterNota(id: number) {
     alertas: n.alertas_json ? JSON.parse(n.alertas_json) : [],
     eventos: db.prepare('SELECT id, tipo, status, motivo, erros_json, criado_em FROM eventos WHERE nota_id = ? ORDER BY id').all(id),
     tomador_email: n.tomador_id ? (db.prepare('SELECT email FROM tomadores WHERE id = ?').get(n.tomador_id) as any)?.email ?? null : null,
+    tomador_whatsapp_aceite: n.tomador_id ? (db.prepare('SELECT whatsapp_aceite FROM tomadores WHERE id = ?').get(n.tomador_id) as any)?.whatsapp_aceite ?? 0 : 0,
     tomador_fone: n.tomador_id ? (db.prepare('SELECT fone FROM tomadores WHERE id = ?').get(n.tomador_id) as any)?.fone ?? null : null,
     empresa_nome: (db.prepare('SELECT nome_fantasia, razao_social FROM empresas WHERE id = ?').get(n.empresa_id) as any),
     emails: db.prepare('SELECT id, para, status, erro, criado_em FROM emails_enviados WHERE nota_id = ? ORDER BY id DESC').all(id),

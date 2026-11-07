@@ -133,7 +133,7 @@ export function obterCobranca(id: number) {
 
 export function listarCobrancas(empresaId: number) {
   return db.prepare(`SELECT c.id, c.nota_id, c.tomador_id, c.descricao, c.valor, c.vencimento, c.status, c.nosso_numero, c.linha_digitavel, c.baixa_pendente, c.pago_em, c.valor_pago,
-      c.observacao_banco, c.email_status, c.email_para, c.criado_em, c.forma, c.pix_copia_cola, c.desconto, c.desconto_motivo, t.nome AS tomador_nome, t.fone AS tomador_fone, c.codigo_barras, n.n_nfse FROM cobrancas c
+      c.observacao_banco, c.email_status, c.email_para, c.criado_em, c.forma, c.pix_copia_cola, c.desconto, c.desconto_motivo, t.nome AS tomador_nome, t.fone AS tomador_fone, t.whatsapp_aceite AS tomador_whatsapp_aceite, c.codigo_barras, n.n_nfse FROM cobrancas c
     JOIN tomadores t ON t.id = c.tomador_id LEFT JOIN notas n ON n.id = c.nota_id
     WHERE c.empresa_id = ? ORDER BY c.vencimento DESC, c.id DESC LIMIT 500`).all(empresaId);
 }
