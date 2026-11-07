@@ -94,16 +94,20 @@ export async function gerarDemonstrativoPdf(d: DadosDemonstrativo): Promise<Buff
 
     // Pix
     if (d.pix && qr) {
-      const h = 40 * MM;
+      const h = 51 * MM;
       pdf.rect(X, y, W, h).fillAndStroke(FUNDO, LINHA);
       pdf.roundedRect(X + 5 * MM, y + 4 * MM, 32 * MM, 32 * MM, 3).fillAndStroke('#fff', LINHA);
       pdf.image(qr, X + 6.5 * MM, y + 5.5 * MM, { width: 29 * MM, height: 29 * MM });
       const tx = X + 44 * MM, tw = W - 48 * MM;
       pdf.fillColor(AZUL).font('Helvetica-Bold').fontSize(10).text('PAGAMENTO VIA PIX', tx, y + 5 * MM, { width: tw });
       pdf.fillColor('#222').font('Helvetica').fontSize(8).text('Escaneie o QR Code no aplicativo do seu banco ou use o Pix Copia e Cola abaixo.', tx, pdf.y + 2, { width: tw });
-      pdf.font('Helvetica-Bold').fontSize(7.5).text('PIX COPIA E COLA:', tx, pdf.y + 4, { width: tw });
-      pdf.font('Courier').fontSize(6.6).fillColor('#333').text(d.pix, tx, pdf.y + 1, { width: tw, lineGap: 0.5 });
-      pdf.font('Helvetica').fontSize(7).fillColor(CINZA).text('Confira o valor e o favorecido antes de confirmar o pagamento.', tx, Math.min(pdf.y + 3, y + h - 6 * MM), { width: tw });
+      pdf.font('Helvetica').fontSize(7).fillColor(CINZA).text('Confira o valor e o favorecido antes de confirmar o pagamento.', tx, pdf.y + 4, { width: tw });
+      // Copia e cola numa linha só: quebrado em várias linhas, o leitor de PDF cola com quebras e o banco recusa o código
+      const lx = X + 5 * MM, lw = W - 10 * MM, ly = y + 39 * MM;
+      pdf.fillColor('#222').font('Helvetica-Bold').fontSize(7.5).text('PIX COPIA E COLA (selecione a linha inteira):', lx, ly, { width: lw, lineBreak: false });
+      const tam = Math.min(7, (lw - 4 * MM) / (d.pix.length * 0.6)); // Courier: cada caractere ocupa 0,6 do tamanho da fonte
+      pdf.roundedRect(lx, ly + 3.6 * MM, lw, 6 * MM, 2).fillAndStroke('#fff', LINHA);
+      pdf.font('Courier').fontSize(tam).fillColor('#111').text(d.pix, lx + 2 * MM, ly + 3.6 * MM + (6 * MM - tam) / 2, { width: lw - 4 * MM, lineBreak: false });
       y += h + 6 * MM;
     }
 
