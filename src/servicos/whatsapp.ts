@@ -1,7 +1,37 @@
 import { z } from 'zod';
 import { db } from '../db.js';
 import { ErroNegocio } from './emissao.js';
-import { codigoDeLicenca } from '../licenca.js';
+import { codigoDeLicenca, codigoDoComputador, hojeBr, lerCodigo } from '../licenca.js';
+
+/** Chave pública da Kontor (a mesma do gerador de licenças): vale para o código de ativação do WhatsApp, mesmo com o controle de licença do sistema desligado. */
+export const CHAVE_KONTOR = 'koSMJ7OYyldxeMDkJVi3dIhkLwsvnPMq6EfPVOseknc';
+/** Permite trocar a chave nos testes. */
+export const _teste = { chave: () => CHAVE_KONTOR };
+const soHex = (s: string) => s.replace(/[^0-9a-f]/gi, '').toUpperCase();
+
+/** Código que prova a licença ao serviço: o da licença do sistema ou, não havendo, o código de ativação do WhatsApp. */
+function codigoParaRelay(): string | null {
+  const l = codigoDeLicenca();
+  if (l) return l;
+  const w = db.prepare('SELECT codigo FROM whatsapp_licenca WHERE id = 1').get() as { codigo: string } | undefined;
+  if (!w) return null;
+  try { const d = lerCodigo(w.codigo, _teste.chave()); return d.ate >= hojeBr() && soHex(d.maquina) === soHex(codigoDoComputador()) ? w.codigo : null; } catch { return null; }
+}
+
+export function ativarCodigoWhatsapp(codigo: string) {
+  const d = lerCodigo(codigo, _teste.chave());
+  if (soHex(d.maquina) !== soHex(codigoDoComputador())) throw new ErroNegocio('Este código foi gerado para outro computador.');
+  if (d.ate < hojeBr()) throw new ErroNegocio('Este código de ativação já está vencido.');
+  db.prepare("INSERT INTO whatsapp_licenca (id, codigo, cliente, ate) VALUES (1,?,?,?) ON CONFLICT(id) DO UPDATE SET codigo = excluded.codigo, cliente = excluded.cliente, ate = excluded.ate, ativada_em = datetime('now')").run(codigo.trim(), d.cliente, d.ate);
+  return statusWhatsapp();
+}
+
+export function statusWhatsapp() {
+  const sistema = codigoDeLicenca();
+  const w = db.prepare('SELECT cliente, ate FROM whatsapp_licenca WHERE id = 1').get() as { cliente: string; ate: string } | undefined;
+  const valido = !!codigoParaRelay();
+  return { ativado: valido, pelaLicencaDoSistema: !!sistema, cliente: w?.cliente ?? null, ate: w?.ate ?? null, vencido: !!w && !valido && !sistema, codigoComputador: codigoDoComputador() };
+}
 
 /** Serviço da Kontor que guarda as credenciais do Twilio (ferramentas/relay-whatsapp). */
 export const RELAY_PADRAO = 'https://wa.kontorgestao.com.br';
@@ -51,8 +81,8 @@ export async function enviarWhatsapp(empresaId: number, usuarioId: number | null
     if (!t.whatsapp_aceite && !p.aceite) throw new ErroNegocio('Confirme que o cliente autorizou receber mensagens por WhatsApp.');
   } else if (!p.aceite) throw new ErroNegocio('Confirme que o cliente autorizou receber mensagens por WhatsApp.');
 
-  const licenca = codigoDeLicenca();
-  if (!licenca) throw new ErroNegocio('O envio automático de WhatsApp exige o sistema ativado. Ative a licença em Configurações > Licença.');
+  const licenca = codigoParaRelay();
+  if (!licenca) throw new ErroNegocio('O envio automático de WhatsApp precisa de ativação. Em Configurações > WhatsApp, informe o código de ativação que o suporte enviar para este computador.');
 
   const registrar = (status: string, erro: string | null, sid: string | null) =>
     Number(db.prepare(`INSERT INTO whatsapp_envios (empresa_id, tipo, destino, status, erro, sid, tomador_id, cobranca_id, nota_id, usuario_id)

@@ -33,7 +33,7 @@ test('whatsapp: número, autorização do cliente, envio pelo relay e histórico
   W.trocarRede((async (url: any, init: any) => { chamadas.push({ url: String(url), corpo: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true, sid: 'SM123', status: 'queued', restante: 199 }), { status: 200 }); }) as any);
 
   // sem licença ativada
-  await assert.rejects(() => W.enviarWhatsapp(1, 1, { tipo: 'lembrete', fone: '47999999999', variaveis: {}, tomadorId: 1, aceite: true }), /exige o sistema ativado/);
+  await assert.rejects(() => W.enviarWhatsapp(1, 1, { tipo: 'lembrete', fone: '47999999999', variaveis: {}, tomadorId: 1, aceite: true }), /precisa de ativação/);
 
   const k = await ferr.gerarChaves();
   L._teste.chave = () => k.publica;
@@ -113,4 +113,32 @@ test('relay de WhatsApp: licença, cota, template e texto livre', async () => {
   const estouro = await pedir(base); assert.equal(estouro.status, 429);
   assert.match(((await estouro.json()) as any).erro, /Cota mensal/);
   assert.equal(twilio.length, 2);
+});
+
+test('whatsapp sem controle de licença do sistema: código de ativação próprio do WhatsApp', async () => {
+  const { db } = await import('../src/db.js');
+  const L = await import('../src/licenca.js');
+  const W = await import('../src/servicos/whatsapp.js');
+  const k = await ferr.gerarChaves();
+  W._teste.chave = () => k.publica;
+  db.prepare('DELETE FROM licenca').run();
+  db.prepare('DELETE FROM whatsapp_licenca').run();
+  L._teste.chave = () => ''; // controle de licença desligado (como na Transportadora)
+  const chamadas: any[] = [];
+  W.trocarRede((async (_u: any, init: any) => { chamadas.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true, sid: 'SM9', status: 'queued', restante: 10 }), { status: 200 }); }) as any);
+  db.prepare('UPDATE tomadores SET whatsapp_aceite = 1 WHERE id = 1').run();
+  assert.equal(W.statusWhatsapp().ativado, false);
+  await assert.rejects(() => W.enviarWhatsapp(1, 1, { tipo: 'lembrete', fone: '47999999999', variaveis: {}, tomadorId: 1, aceite: true }), /precisa de ativação/);
+
+  const outro = await ferr.emitirCodigo(k.privada, 'AAAA-BBBB-CCCC-DDDD', '2099-01-01', 'Cliente Y');
+  assert.throws(() => W.ativarCodigoWhatsapp(outro), /outro computador/);
+  const vencido = await ferr.emitirCodigo(k.privada, L.codigoDoComputador(), '2020-01-01', 'Cliente Y');
+  assert.throws(() => W.ativarCodigoWhatsapp(vencido), /vencido/);
+  assert.throws(() => W.ativarCodigoWhatsapp('lixo'), /inválido/);
+
+  const bom = await ferr.emitirCodigo(k.privada, L.codigoDoComputador(), '2099-01-01', 'Cliente Y');
+  const st = W.ativarCodigoWhatsapp(bom);
+  assert.equal(st.ativado, true); assert.equal(st.cliente, 'Cliente Y');
+  await W.enviarWhatsapp(1, 1, { tipo: 'lembrete', fone: '47999999999', variaveis: {}, tomadorId: 1 });
+  assert.equal(chamadas.at(-1).licenca, bom);
 });

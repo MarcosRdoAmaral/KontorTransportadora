@@ -4718,11 +4718,19 @@ async function telaConfig(aba) {
 
 const NOME_TIPO_WA = { lembrete: 'Lembrete de vencimento', atraso: 'Cobrança em atraso', nota: 'Nota emitida', pagamento: 'Pagamento confirmado' };
 async function telaWhatsapp() {
-  const h = await api('GET', `/api/empresas/${estado.empresaId}/whatsapp/historico`);
+  const [h, st] = await Promise.all([api('GET', `/api/empresas/${estado.empresaId}/whatsapp/historico`), api('GET', '/api/whatsapp/status')]);
   const falhas = h.filter((x) => x.status === 'FALHA').length;
   corpoConfig().innerHTML = `
     <h2>WhatsApp automático</h2>
     <p class="sutil">As mensagens saem pelo serviço de WhatsApp da Kontor, sem você configurar nada. Use o botão <strong>Enviar pelo sistema</strong> em Cobranças (lembrete, atraso e pagamento) e em Notas emitidas (nota emitida). O cliente só recebe se você confirmar que ele autorizou receber mensagens. Há uma cota mensal de mensagens por licença.</p>
+    ${st.ativado ? '' : `<form class="cartao" id="form-wa-ativar">
+      <h3 style="margin-top:0">${st.vencido ? 'O código de ativação do WhatsApp venceu' : 'Ative o WhatsApp automático'}</h3>
+      <p class="sutil">Envie ao suporte o código deste computador e cole abaixo o código de ativação que receber.</p>
+      <p>Código deste computador: <strong style="letter-spacing:1px">${esc(st.codigoComputador)}</strong></p>
+      <label>Código de ativação <input name="codigo" required autocomplete="off" placeholder="KG..."></label>
+      <p class="erro" id="erro-wa-ativar"></p>
+      <div class="acoes"><button class="tl-btn-ouro" type="submit">Ativar</button></div></form>`}
+    ${st.ativado && st.ate ? `<p class="sutil">Ativação do WhatsApp válida até ${dataBr(st.ate)}${st.cliente ? ' · ' + esc(st.cliente) : ''}.</p>` : ''}
     ${cartoesKpi([
       { ic: 'o-zap', tom: 'verde', valor: h.length - falhas, rotulo: 'Enviadas (últimas 100)' },
       { ic: 'tl-alerta', tom: falhas ? 'vermelho' : 'neutro', valor: falhas, rotulo: 'Com falha' },
@@ -4731,6 +4739,12 @@ async function telaWhatsapp() {
       ${h.map((x) => `<tr><td>${dataHoraBr(x.criado_em.replace(' ', 'T') + 'Z')}</td><td>${esc(NOME_TIPO_WA[x.tipo] ?? x.tipo)}</td><td>${esc(x.cliente ?? '—')}</td><td>${esc(x.destino)}</td>
         <td>${x.status === 'FALHA' ? `<span class="cor-vermelho" title="${esc(x.erro ?? '')}">Falhou</span><br><span class="dica">${esc(x.erro ?? '')}</span>` : '<span class="cor-verde">Enviada</span>'}</td></tr>`).join('')}
     </tbody></table></div></div>` : vazioTela('o-zap', 'Nenhuma mensagem enviada', 'Quando você enviar um WhatsApp pelo sistema, o histórico aparece aqui.')}`;
+
+  $('#form-wa-ativar')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try { await api('POST', '/api/whatsapp/ativar', { codigo: ev.target.codigo.value.trim() }); aviso('WhatsApp ativado.'); telaWhatsapp(); }
+    catch (e) { $('#erro-wa-ativar').textContent = mensagemErro(e); }
+  });
 }
 
 function telaMinhaConta() {

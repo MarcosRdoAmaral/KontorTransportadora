@@ -1106,6 +1106,14 @@ const migracoes: string[] = [
     criado_em TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX idx_whatsapp_empresa ON whatsapp_envios(empresa_id, id);`,
+  // código de ativação do WhatsApp (vale mesmo com o controle de licença do sistema desligado)
+  `CREATE TABLE whatsapp_licenca (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    codigo TEXT NOT NULL,
+    cliente TEXT,
+    ate TEXT,
+    ativada_em TEXT NOT NULL DEFAULT (datetime('now'))
+  );`,
 ];
 
 export function migrar(): void {

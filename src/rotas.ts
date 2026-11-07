@@ -13,7 +13,7 @@ import { ModeloEditado, listarModelos, restaurarModelo, salvarModelo } from './s
 import { MODULOS_PAGOS, modulosLiberados, ativarLicenca, exigirLicenca, exigirLimite, PLANOS, SUPORTE_WHATSAPP, statusLicenca, usoAtual, acessoDeSuporte } from './licenca.js';
 import { BoletoAvulso, EntradaFaturamento, enviarCobrancaPorEmail, faturar, gerarBoletoAvulso, listarCobrancas } from './servicos/faturamento.js';
 import { ContaCoraEntrada, obterContaCora, salvarContaCora, removerContaCora, testarCora, sincronizarTudo, cancelarNaCora } from './servicos/cora.js';
-import { enviarWhatsapp, historicoWhatsapp, PedidoWhatsapp } from './servicos/whatsapp.js';
+import { ativarCodigoWhatsapp, enviarWhatsapp, historicoWhatsapp, PedidoWhatsapp, statusWhatsapp } from './servicos/whatsapp.js';
 import { ContaBancaria, obterModelosWhatsapp, reemitirCobranca, salvarModelosWhatsapp, boletoPdf, demonstrativoPdf, informarPix, ConfigPix, configPixPublica, gerarPixCobranca, gerarPixPendentes, salvarConfigPix, cancelarCobranca, gerarRemessaEmpresa, listarRemessas, marcarPago, obterCobranca, obterConta, obterRemessa, processarRetorno, salvarConta } from './servicos/cobranca.js';
 import { Despesa, criarDespesa, editarDespesa, excluirDespesa, listarCategorias, listarDespesas, painelFinanceiro, salvarCategorias } from './servicos/financeiro.js';
 import { ClassificacaoCartao, classificarCartao, excluirFatura, faturasDoMes, importarFatura } from './servicos/cartao.js';
@@ -770,6 +770,8 @@ export async function rotas(app: FastifyInstance) {
       const id = Number((req.params as any).id); checarEmpresa(req, id);
       return enviarWhatsapp(id, u(req).id, PedidoWhatsapp.parse(req.body));
     });
+    api.get('/api/whatsapp/status', async () => statusWhatsapp());
+    api.post('/api/whatsapp/ativar', { preHandler: exigirPapel('admin') }, async (req) => ativarCodigoWhatsapp(z.object({ codigo: z.string().min(10, 'Cole o código de ativação') }).parse(req.body).codigo));
     api.get('/api/empresas/:id/whatsapp/historico', async (req) => {
       const id = Number((req.params as any).id); checarEmpresa(req, id);
       return historicoWhatsapp(id);

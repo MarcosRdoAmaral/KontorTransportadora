@@ -72,7 +72,7 @@ function gravarMarcas(inicio: string, visto: string) {
   }
 }
 
-const hojeBr = () => new Date(_teste.agora().getTime() - 3 * 3600e3).toISOString().slice(0, 10);
+export const hojeBr = () => new Date(_teste.agora().getTime() - 3 * 3600e3).toISOString().slice(0, 10);
 const b64u = (b: Buffer) => b.toString('base64url');
 
 function linha() {
@@ -101,8 +101,8 @@ const soHex = (s: string) => s.replace(/[^0-9a-f]/gi, '').toUpperCase();
 export interface DadosCodigo { maquina: string; ate: string; cliente: string; plano: Plano; modulos: string[] }
 
 /** Confere a assinatura e devolve os dados, ou lança ErroNegocio. */
-export function lerCodigo(codigo: string): DadosCodigo {
-  const chave = _teste.chave();
+export function lerCodigo(codigo: string, chaveFixa?: string): DadosCodigo {
+  const chave = chaveFixa ?? _teste.chave();
   if (!chave) throw new ErroNegocio('Controle de licença ainda não configurado nesta versão.');
   const partes = codigo.trim().split('.');
   if (partes.length !== 3 || !['KG1', 'KG2', 'KG3'].includes(partes[0])) throw new ErroNegocio('Código de ativação inválido.');

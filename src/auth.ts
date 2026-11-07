@@ -62,12 +62,13 @@ const LER_NOTA: Modulo[] = ['notas', 'painel', 'cobrancas', 'emitir'];
 /** Qual módulo cada rota exige. Rota que não está aqui é negada (lista fechada). */
 const REGRAS: Regra[] = [
   { r: /^\/api\/me(\/empresa|\/senha|\/avatar)?$/, mod: 'livre' },
+  { m: 'GET', r: /^\/api\/whatsapp\/status$/, mod: 'livre' },
   { m: 'GET', r: /^\/api\/licenca$/, mod: 'livre' },
   { m: 'GET', r: /^\/api\/inicio$/, mod: 'livre' },
   { m: 'GET', r: /^\/api\/consulta\/cnpj\//, mod: 'livre' },
   { m: 'GET', r: /^\/api\/empresas$/, mod: 'livre' },
   { r: /^\/api\/empresas\/\d+\/contabilidade(\/|$)/, mod: 'adm' },
-  { r: /^\/api\/(usuarios|email\/config|email\/testar|email\/modelos|email\/assinatura|backup|tabelas|licenca|contabilidade)(\/|$)/, mod: 'adm' },
+  { r: /^\/api\/(usuarios|email\/config|email\/testar|email\/modelos|email\/assinatura|backup|tabelas|licenca|whatsapp\/ativar|contabilidade)(\/|$)/, mod: 'adm' },
   { r: /^\/api\/empresas(\/\d+)?$|^\/api\/empresas\/\d+\/(certificado|logo)$/, mod: ['empresas'] },
   { m: 'POST', r: /^\/api\/tomadores\/\d+\/descricao$/, mod: ['emitir', 'tomadores'] },
   { r: /^\/api\/empresas\/\d+\/orcamentos(\/\d+(\/(duplicar|situacao|conversao|pdf|email))?)?$/, mod: ['emitir'] },
